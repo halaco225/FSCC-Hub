@@ -585,8 +585,14 @@ const FILE_ICONS={pdf:'📄',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'�
   uploadedFiles  → table: uploaded_files (+ Supabase Storage for actual blobs)
 */
 // ── Supabase client ──────────────────────────────────────
-const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let _supabaseReady = true;
+let _sb = null;
+let _supabaseReady = false;
+try {
+  _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  _supabaseReady = true;
+} catch(e) {
+  console.warn('Supabase init failed — running in local mode:', e);
+}
 
 function ls(k,d){try{return JSON.parse(localStorage.getItem('fscc_'+k))??d;}catch{return d;}}
 function lsSave(k,v){localStorage.setItem('fscc_'+k,JSON.stringify(v));}
@@ -723,10 +729,10 @@ async function loadFromSupabase(){
       }));
       lsSave('uploadedFiles',uploadedFiles);
     }
-    // Re-render active tab
-    const activeTab=document.querySelector('.tab-active')?.id?.replace('nav-','');
+    // Re-render active tab with fresh data
+    const activeNav=document.querySelector('.tab-active');
+    const activeTab=activeNav?.id?.replace('nav-','');
     if(activeTab) showTab(activeTab);
-    else showTab('dashboard');
 
     // Real-time: refresh when teammates make changes
     _sb.channel('fscc-changes')
@@ -1494,8 +1500,9 @@ if(daysToWindow>0&&daysToWindow<=60){
   document.getElementById('countdownDays').textContent=daysToWindow;
 }
 
-// Load from Supabase (falls back to localStorage if offline)
-loadFromSupabase();
+// Show app immediately from localStorage, then sync Supabase in background
+showTab('dashboard');
+if(_supabaseReady) loadFromSupabase();
 </script>
 </body>
 </html>
