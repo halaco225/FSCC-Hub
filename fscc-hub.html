@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FSCC Hub — Store 039376</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body{font-family:'Inter',system-ui,sans-serif;background:#f8fafc}
+.cell-assigned{background:#dbeafe;border-left:4px solid #3b82f6}
+.cell-inprogress{background:#fef3c7;border-left:4px solid #f59e0b}
+.cell-complete{background:#dcfce7;border-left:4px solid #22c55e}
+.cell-notdone{background:#fee2e2;border-left:4px solid #ef4444}
+.cell-empty{background:#f9fafb;border-left:4px solid #e5e7eb}
+.window-week{background:linear-gradient(135deg,#fffbeb,#fef3c7)}
+.window-hdr{background:linear-gradient(90deg,#d97706,#b45309);color:#fff}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:#fff;border-radius:1.25rem;width:100%;max-width:34rem;max-height:92vh;overflow-y:auto}
+.tab-active{border-bottom:3px solid #dc2626!important;color:#dc2626!important}
+.label{display:block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;margin-bottom:.2rem}
+.field{border:1px solid #d1d5db;border-radius:.5rem;padding:.45rem .75rem;font-size:.875rem;width:100%}
+.field:focus{outline:none;box-shadow:0 0 0 3px rgba(220,38,38,.2);border-color:#f87171}
+.badge-sig{background:#fee2e2;color:#dc2626;font-size:.65rem;font-weight:800;padding:.15rem .4rem;border-radius:.25rem}
+.badge-sec{background:#fef3c7;color:#b45309;font-size:.65rem;font-weight:700;padding:.15rem .4rem;border-radius:.25rem}
+.badge-rep{background:#ede9fe;color:#7c3aed;font-size:.65rem;font-weight:700;padding:.15rem .4rem;border-radius:.25rem}
+.badge-ok{background:#dcfce7;color:#16a34a;font-size:.65rem;font-weight:700;padding:.15rem .4rem;border-radius:.25rem}
+.drop-zone{border:2px dashed #d1d5db;border-radius:.75rem;padding:1.5rem;text-align:center;transition:all .2s;cursor:pointer}
+.drop-zone:hover,.drop-zone.drag-over{border-color:#ef4444;background:#fef2f2}
+.file-thumb{width:48px;height:48px;border-radius:.5rem;object-fit:cover;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:#f1f5f9}
+::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:4px}
+</style>
+</head>
+<body>
+
+<script>
+const SUPABASE_URL = '';  // https://xxxx.supabase.co
+const SUPABASE_KEY = '';  // anon/public key
+</script>
+
+<div id="windowBanner" class="hidden bg-amber-400 text-amber-900 text-center py-2 font-bold text-sm sticky top-0 z-50">
+  ⭐ WINDOW OPEN — Jul 14–20, 2026 · FSCC Audit Window Is Active ⭐
+</div>
+<div class="bg-blue-50 border-b border-blue-200 text-blue-700 text-xs text-center py-1.5 px-4">
+  📦 Local mode — data saves to this browser only. Add Supabase credentials above to sync across all devices.
+</div>
+
+<header class="bg-red-700 text-white shadow-lg">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xl font-extrabold">🍕 FSCC Hub</span>
+        <span class="bg-red-900 text-red-200 text-xs font-semibold px-2 py-0.5 rounded">039376</span>
+        <span class="bg-red-800 text-red-300 text-xs px-2 py-0.5 rounded">Cycle 1 · 2026</span>
+      </div>
+      <div class="text-red-300 text-xs mt-0.5">8876 Dallas Acworth Hwy · Dallas, GA · MGR: Tina Gunckel</div>
+    </div>
+    <div class="flex gap-2 text-center text-xs">
+      <div class="bg-red-900 rounded-lg px-3 py-1.5">
+        <div class="text-red-400">May 13</div><div class="text-xl font-black text-amber-300">14</div><div class="text-red-400">Prev</div>
+      </div>
+      <div class="bg-red-900 rounded-lg px-3 py-1.5 ring-2 ring-red-400">
+        <div class="text-red-300">Jun 14</div><div class="text-xl font-black">16</div><div class="text-red-300 font-bold">⚠️ Now</div>
+      </div>
+      <div class="bg-green-800 rounded-lg px-3 py-1.5">
+        <div class="text-green-400">Target</div><div class="text-xl font-black text-green-200">&lt;10</div><div class="text-green-400">Next</div>
+      </div>
+      <div id="countdownCard" class="bg-amber-600 rounded-lg px-3 py-1.5 hidden">
+        <div class="text-amber-200">Window</div><div id="countdownDays" class="text-xl font-black"></div><div class="text-amber-200">days</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="bg-white border-b shadow-sm sticky top-0 z-40 overflow-x-auto">
+  <div class="max-w-6xl mx-auto px-4 flex min-w-max">
+    <button onclick="showTab('dashboard')" id="nav-dashboard" class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">📊 Dashboard</button>
+    <button onclick="showTab('tracker')"   id="nav-tracker"   class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">📅 60-Day Tracker</button>
+    <button onclick="showTab('ops')"       id="nav-ops"       class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">✅ Daily Ops</button>
+    <button onclick="showTab('files')"     id="nav-files"     class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">📎 Uploaded Files</button>
+    <button onclick="showTab('findings')"  id="nav-findings"  class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">🔍 Findings (16)</button>
+  </div>
+</nav>
+
+<!-- ═══ DASHBOARD ═══ -->
+<section id="tab-dashboard" class="max-w-6xl mx-auto px-4 py-5 space-y-4">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-500 col-span-2 md:col-span-1">
+      <div class="text-xs font-bold text-red-500 uppercase mb-1">⚠️ Significant</div>
+      <div class="text-4xl font-black text-red-600">2</div>
+      <div class="text-xs text-gray-500 mt-1 space-y-0.5"><div>• 2.03 Cold temp holding</div><div>• 4.01 Expired products</div></div>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-amber-500">
+      <div class="text-xs font-bold text-amber-600 uppercase mb-1">Secondary</div>
+      <div class="text-4xl font-black text-amber-600">14</div>
+      <div class="text-xs text-red-600 font-bold">12 repeats</div>
+      <div class="mt-2 w-full bg-gray-200 rounded-full h-1.5"><div class="bg-amber-400 h-1.5 rounded-full" style="width:86%"></div></div>
+      <div class="text-xs text-gray-400 mt-1">86% were repeats</div>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500">
+      <div class="text-xs font-bold text-purple-600 uppercase mb-1">🎯 Score Simulator</div>
+      <div class="text-4xl font-black text-purple-600" id="simScore">16</div>
+      <div class="text-xs text-gray-500">if audited today</div>
+      <div id="simStatus" class="mt-1 text-xs font-bold text-red-600">UNDERPERFORMING</div>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500">
+      <div class="text-xs font-bold text-green-600 uppercase mb-1">✓ Best Practices</div>
+      <div class="text-4xl font-black text-green-600">3</div>
+      <div class="mt-2 text-xs text-gray-600 space-y-0.5"><div>✓ Date labeling</div><div>✓ Hand washing</div><div>✓ Hair restraints</div></div>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl p-4 shadow-sm">
+    <div class="font-bold text-gray-800 mb-3">Score History</div>
+    <div class="flex items-end gap-1.5 h-20" id="scoreChart"></div>
+    <div class="text-xs text-gray-400 mt-1">Lower is better · ≥10 = Underperforming</div>
+  </div>
+  <div class="bg-white rounded-xl p-4 shadow-sm">
+    <div class="font-bold text-gray-800 mb-3">60-Day Tracker Progress</div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="progressSummary"></div>
+  </div>
+  <div class="bg-white rounded-xl p-4 shadow-sm">
+    <div class="flex justify-between items-center mb-2">
+      <div class="font-bold text-gray-800">Findings Resolution</div>
+      <div id="findingsResCount" class="text-sm text-gray-500"></div>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-3"><div id="findingsResBar" class="bg-green-500 h-3 rounded-full transition-all" style="width:0%"></div></div>
+  </div>
+  <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+    <div class="font-bold text-red-800 mb-3">🚨 Priority Actions Before Jul 14</div>
+    <div class="grid sm:grid-cols-2 gap-2 text-sm text-red-700">
+      <div>🌡️ <b>Repair maketable cold well</b> — must hold ≤41°F</div>
+      <div>📅 <b>Date label checks 3×/day</b> — FIFO strictly enforced</div>
+      <div>🧹 <b>Deep clean entire BOH</b> — floors, shelving, fryers</div>
+      <div>🔧 <b>Replace torn gaskets</b> — reach-in + walk-in glass door</div>
+      <div>🧪 <b>Fix Quat sanitizer</b> — 150–400 ppm, log every 2 hrs</div>
+      <div>📋 <b>Weekly pest walks</b> — document + file 30 days</div>
+      <div>🎓 <b>Restore HutLink/Learn Now</b> — training records on-site</div>
+      <div>🔨 <b>Patch dish area wall holes</b> — pest entry risk</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TRACKER ═══ -->
+<section id="tab-tracker" class="hidden max-w-6xl mx-auto px-4 py-5">
+  <div class="bg-white rounded-xl p-3 shadow-sm mb-4 flex flex-wrap gap-3 items-center">
+    <select id="filterPerson" onchange="renderCalendar()" class="field" style="width:auto">
+      <option value="ALL">All People</option>
+      <option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option>
+    </select>
+    <select id="filterStatus" onchange="renderCalendar()" class="field" style="width:auto">
+      <option value="ALL">All Statuses</option>
+      <option>Assigned</option><option>In Progress</option><option>Complete</option><option>Not Completed</option>
+    </select>
+    <button onclick="openEntryModal(null,null)" class="ml-auto bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-1.5 rounded-lg">+ New Entry</button>
+  </div>
+  <div class="flex flex-wrap gap-4 mb-3 text-xs text-gray-600">
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded cell-assigned inline-block"></span>Assigned</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded cell-inprogress inline-block"></span>In Progress</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded cell-complete inline-block"></span>Complete</span>
+    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded cell-notdone inline-block"></span>Not Completed</span>
+    <span class="flex items-center gap-1.5"><span class="text-base">📎</span>Has files</span>
+  </div>
+  <div id="calendarGrid" class="space-y-4"></div>
+</section>
+
+<!-- ═══ DAILY OPS ═══ -->
+<section id="tab-ops" class="hidden max-w-6xl mx-auto px-4 py-5 space-y-4">
+  <div class="bg-white rounded-xl p-4 shadow-sm flex flex-wrap items-center gap-3">
+    <div><label class="label">Viewing Date</label>
+      <input id="opsDate" type="date" class="field" style="width:auto" onchange="renderOps()"></div>
+    <div id="opsCompletionBadge" class="text-sm font-bold"></div>
+    <button onclick="renderOps()" class="ml-auto bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded-lg">Refresh</button>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-gray-800 text-white px-4 py-3 flex items-center justify-between">
+      <div class="font-bold">Daily Compliance Checklist</div>
+      <div id="checklistPct" class="text-sm text-gray-300"></div>
+    </div>
+    <div id="checklistBody" class="divide-y divide-gray-100"></div>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-blue-700 text-white px-4 py-3 flex items-center justify-between">
+      <div class="font-bold">🌡️ Temperature Log</div>
+      <button onclick="openTempModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-lg">+ Log Temp</button>
+    </div>
+    <div id="tempLogBody" class="p-3"></div>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-green-700 text-white px-4 py-3 flex items-center justify-between">
+      <div class="font-bold">🐛 Pest Walk Log</div>
+      <button onclick="openPestModal()" class="bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-lg">+ Log Walk</button>
+    </div>
+    <div id="pestLogBody" class="p-3"></div>
+  </div>
+</section>
+
+<!-- ═══ UPLOADED FILES ═══ -->
+<section id="tab-files" class="hidden max-w-6xl mx-auto px-4 py-5">
+  <!-- Upload area -->
+  <div class="bg-white rounded-xl shadow-sm p-5 mb-4">
+    <div class="font-bold text-gray-800 mb-3">Upload Audit, Test, or Supporting Documentation</div>
+    <div class="drop-zone" id="mainDropZone" onclick="document.getElementById('mainFileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleFileDrop(event)">
+      <div class="text-3xl mb-2">📎</div>
+      <div class="font-semibold text-gray-600">Click to upload or drag &amp; drop</div>
+      <div class="text-xs text-gray-400 mt-1">PDF, JPG, PNG — files will auto-attach to the matching date in the 60-Day Tracker</div>
+      <input id="mainFileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" multiple class="hidden" onchange="handleMainFileSelect(this)">
+    </div>
+    <!-- Pending uploads -->
+    <div id="pendingUploads" class="hidden mt-4 space-y-3">
+      <div class="text-xs font-bold text-gray-500 uppercase">Review before saving</div>
+      <div id="pendingList"></div>
+      <button onclick="savePendingUploads()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-sm">Save All Files</button>
+    </div>
+  </div>
+
+  <!-- File list -->
+  <div class="flex flex-wrap gap-2 mb-3 items-center">
+    <select id="fileFilterCat" onchange="renderFiles()" class="field" style="width:auto">
+      <option value="ALL">All Categories</option>
+      <option>SafetyCulture Audit</option><option>HutBot Audit</option>
+      <option>Food Safety Test</option><option>Temp Log</option><option>Pest Walk</option>
+      <option>Corrective Action Photo</option><option>Other</option>
+    </select>
+    <input id="fileSearch" type="text" placeholder="Search files…" class="field" style="width:180px" oninput="renderFiles()">
+    <div id="fileTotalBadge" class="ml-auto text-xs text-gray-400"></div>
+  </div>
+  <div id="filesList" class="space-y-2"></div>
+</section>
+
+<!-- ═══ FINDINGS ═══ -->
+<section id="tab-findings" class="hidden max-w-6xl mx-auto px-4 py-5">
+  <div class="bg-white rounded-xl p-4 shadow-sm mb-4">
+    <div class="flex justify-between mb-1">
+      <div class="font-bold text-gray-800">Resolution Progress</div>
+      <div id="resCount" class="text-sm text-gray-500"></div>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+      <div id="resBar" class="bg-green-500 h-3 rounded-full transition-all" style="width:0%"></div>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2 mb-4">
+    <select id="fSev" onchange="renderFindings()" class="field" style="width:auto">
+      <option value="ALL">All Severity</option><option>Significant</option><option>Secondary</option>
+    </select>
+    <select id="fCat" onchange="renderFindings()" class="field" style="width:auto">
+      <option value="ALL">All Categories</option>
+      <option value="1">1. Health &amp; Hygiene</option><option value="2">2. Temperature</option>
+      <option value="4">4. Expiration</option><option value="5">5. Contamination</option>
+      <option value="6">6. Pest</option><option value="7">7. Basics</option>
+    </select>
+    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer bg-white border border-gray-300 rounded-lg px-3 py-1.5">
+      <input type="checkbox" id="fUnres" onchange="renderFindings()"> Unresolved only
+    </label>
+  </div>
+  <div id="findingsList" class="space-y-3"></div>
+</section>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Entry Modal -->
+<div id="entryModal" class="overlay hidden" onclick="if(event.target===this)closeModal('entryModal')">
+  <div class="modal shadow-2xl">
+    <div class="bg-red-700 text-white px-5 py-4 rounded-t-2xl flex justify-between items-start">
+      <div><div class="text-xs text-red-300 mb-0.5" id="emSub">New Entry</div><div class="font-bold text-lg" id="emTitle">Add Calendar Entry</div></div>
+      <button onclick="closeModal('entryModal')" class="text-red-200 hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <!-- Existing entries for that day -->
+    <div id="emExisting" class="hidden px-5 pt-4">
+      <div class="text-xs font-bold text-gray-400 uppercase mb-2">Existing entries — tap to edit</div>
+      <div id="emExistingList" class="space-y-1.5 mb-3"></div>
+      <hr class="mb-3"><div class="text-xs font-bold text-gray-400 uppercase mb-2">Add new entry</div>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <input type="hidden" id="emId"><input type="hidden" id="emDate">
+      <div id="emDateField" class="hidden">
+        <label class="label">Date</label>
+        <input id="emDatePick" type="date" min="2026-06-14" max="2026-08-12" class="field"
+          onchange="document.getElementById('emDate').value=this.value;document.getElementById('emTitle').textContent=fmtDate(this.value)">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">Person</label>
+          <input id="emPerson" type="text" list="personList" placeholder="Name or type…" class="field" autocomplete="off">
+          <datalist id="personList"><option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option><option>ALL</option></datalist>
+        </div>
+        <div><label class="label">Status</label>
+          <select id="emStatus" class="field" onchange="updateEmBadge()">
+            <option value="">Select…</option><option>Assigned</option><option>In Progress</option><option>Complete</option><option>Not Completed</option>
+          </select></div>
+      </div>
+      <div id="emBadge" class="hidden text-xs font-bold text-center rounded-lg py-1.5"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">RGM Schedule</label><input id="emRgm" type="text" placeholder="e.g. 8am–4pm" class="field"></div>
+        <div><label class="label">DM Schedule</label><input id="emDm" type="text" placeholder="e.g. Visit 2pm" class="field"></div>
+      </div>
+      <div><label class="label">Tasks Completed / Notes</label>
+        <textarea id="emTask" rows="3" placeholder="What was done, completed, or needs attention today…" class="field resize-none"></textarea></div>
+      <div><label class="label">Audit / Finding Reference</label>
+        <textarea id="emAudit" rows="2" placeholder="Reference audit codes, HutBot/SafetyCulture task names…" class="field resize-none"></textarea></div>
+      <div><label class="label">Notes</label>
+        <textarea id="emNotes" rows="2" placeholder="Any additional notes…" class="field resize-none"></textarea></div>
+
+      <!-- File attachments for this entry -->
+      <div>
+        <label class="label">Attach Files to This Day</label>
+        <div class="drop-zone text-sm" id="entryDropZone" onclick="document.getElementById('entryFileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleEntryFileDrop(event)">
+          <span class="text-gray-500">📎 Click to attach or drag files here</span>
+          <input id="entryFileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" multiple class="hidden" onchange="handleEntryFileSelect(this)">
+        </div>
+        <div id="entryAttachedFiles" class="space-y-1.5 mt-2"></div>
+      </div>
+    </div>
+    <div class="px-5 pb-5 flex gap-2">
+      <button onclick="saveEntry()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl">Save</button>
+      <button onclick="closeModal('entryModal')" class="px-4 border border-gray-300 rounded-xl text-gray-600 text-sm">Cancel</button>
+      <button id="emDel" onclick="deleteEntry()" class="hidden px-4 border border-red-200 text-red-400 rounded-xl text-sm hover:bg-red-50">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Detail Modal (for main file tab uploads) -->
+<div id="uploadDetailModal" class="overlay hidden" onclick="if(event.target===this)closeModal('uploadDetailModal')">
+  <div class="modal shadow-2xl" style="max-width:28rem">
+    <div class="bg-gray-800 text-white px-5 py-4 rounded-t-2xl flex justify-between">
+      <div class="font-bold" id="udTitle">File Details</div>
+      <button onclick="closeModal('uploadDetailModal')" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <input type="hidden" id="udIdx">
+      <div id="udPreview" class="flex justify-center mb-2"></div>
+      <div><label class="label">File Name</label><div id="udFileName" class="text-sm text-gray-600 bg-gray-50 rounded px-3 py-2"></div></div>
+      <div><label class="label">Category</label>
+        <select id="udCat" class="field">
+          <option>SafetyCulture Audit</option><option>HutBot Audit</option>
+          <option>Food Safety Test</option><option>Temp Log</option><option>Pest Walk</option>
+          <option>Corrective Action Photo</option><option>Other</option>
+        </select></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">Date (auto-detected)</label><input id="udDate" type="date" class="field"></div>
+        <div><label class="label">Uploaded By</label>
+          <input id="udBy" type="text" list="personList2" class="field" placeholder="Name…">
+          <datalist id="personList2"><option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option></datalist>
+        </div>
+      </div>
+      <div><label class="label">Description / Notes</label>
+        <textarea id="udDesc" rows="2" class="field resize-none" placeholder="What this file shows…"></textarea></div>
+    </div>
+    <div class="px-5 pb-5 flex gap-2">
+      <button onclick="confirmUploadDetail()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl">Confirm</button>
+      <button onclick="closeModal('uploadDetailModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- File Viewer Modal -->
+<div id="fileViewerModal" class="overlay hidden" onclick="if(event.target===this)closeModal('fileViewerModal')">
+  <div class="modal shadow-2xl" style="max-width:90vw;max-height:90vh">
+    <div class="bg-gray-900 text-white px-5 py-3 rounded-t-2xl flex justify-between items-center">
+      <div id="fvTitle" class="font-bold text-sm truncate"></div>
+      <button onclick="closeModal('fileViewerModal')" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+    </div>
+    <div id="fvBody" class="p-4 overflow-auto" style="max-height:80vh"></div>
+  </div>
+</div>
+
+<!-- Temp Modal -->
+<div id="tempModal" class="overlay hidden" onclick="if(event.target===this)closeModal('tempModal')">
+  <div class="modal shadow-2xl" style="max-width:24rem">
+    <div class="bg-blue-700 text-white px-5 py-4 rounded-t-2xl flex justify-between">
+      <div class="font-bold">Log Temperature Reading</div>
+      <button onclick="closeModal('tempModal')" class="text-blue-200 hover:text-white text-2xl">&times;</button>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">Date</label><input id="tlDate" type="date" class="field"></div>
+        <div><label class="label">Time</label><input id="tlTime" type="time" class="field"></div>
+      </div>
+      <div><label class="label">Equipment</label>
+        <select id="tlEquip" class="field">
+          <option value="">Select…</option>
+          <option>Maketable (cold well)</option><option>Walk-in Cooler</option>
+          <option>Reach-in Freezer</option><option>Walk-in Freezer</option><option>Other</option>
+        </select></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">Temperature (°F)</label><input id="tlTemp" type="number" step="0.1" placeholder="e.g. 38" class="field"></div>
+        <div><label class="label">Logged By</label>
+          <input id="tlBy" type="text" list="personList3" class="field" placeholder="Name">
+          <datalist id="personList3"><option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option></datalist>
+        </div>
+      </div>
+      <div id="tlAlert" class="hidden text-xs font-bold rounded-lg px-3 py-2 text-center"></div>
+      <div><label class="label">Notes</label><input id="tlNotes" type="text" placeholder="Any observations…" class="field"></div>
+    </div>
+    <div class="px-5 pb-5 flex gap-2">
+      <button onclick="saveTempLog()" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl">Save Reading</button>
+      <button onclick="closeModal('tempModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pest Modal -->
+<div id="pestModal" class="overlay hidden" onclick="if(event.target===this)closeModal('pestModal')">
+  <div class="modal shadow-2xl" style="max-width:24rem">
+    <div class="bg-green-700 text-white px-5 py-4 rounded-t-2xl flex justify-between">
+      <div class="font-bold">Log Pest Walk</div>
+      <button onclick="closeModal('pestModal')" class="text-green-200 hover:text-white text-2xl">&times;</button>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">Walk Date</label><input id="pwDate" type="date" class="field"></div>
+        <div><label class="label">Completed By</label>
+          <input id="pwBy" type="text" list="personList4" class="field" placeholder="Name">
+          <datalist id="personList4"><option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option></datalist>
+        </div>
+      </div>
+      <div><label class="label">Vendor</label><input id="pwVendor" type="text" value="Orkin" class="field"></div>
+      <div><label class="label">Result</label>
+        <select id="pwResult" class="field"><option>No Issues Found</option><option>Minor Issues Noted</option><option>Issues Found — Action Taken</option></select></div>
+      <div><label class="label">Notes / Observations</label>
+        <textarea id="pwNotes" rows="3" class="field resize-none" placeholder="Any pest activity, entry points, or actions taken…"></textarea></div>
+    </div>
+    <div class="px-5 pb-5 flex gap-2">
+      <button onclick="savePestWalk()" class="flex-1 bg-green-700 hover:bg-green-600 text-white font-bold py-2.5 rounded-xl">Save</button>
+      <button onclick="closeModal('pestModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Finding Modal -->
+<div id="findingModal" class="overlay hidden" onclick="if(event.target===this)closeModal('findingModal')">
+  <div class="modal shadow-2xl" style="max-width:28rem">
+    <div class="bg-gray-800 text-white px-5 py-4 rounded-t-2xl flex justify-between">
+      <div class="font-bold text-sm" id="fmTitle">Finding Notes</div>
+      <button onclick="closeModal('findingModal')" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <div id="fmBody" class="text-sm bg-gray-50 rounded-lg p-3 text-gray-700 whitespace-pre-line"></div>
+      <div><label class="label">Corrective Action Notes</label>
+        <textarea id="fmNotes" rows="3" class="field resize-none" placeholder="What was done to fix this…"></textarea></div>
+      <div><label class="label">Resolved By</label>
+        <input id="fmBy" type="text" list="personList5" class="field" placeholder="Name">
+        <datalist id="personList5"><option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option></datalist>
+      </div>
+    </div>
+    <div class="px-5 pb-5 flex gap-2">
+      <button onclick="saveFindingNotes()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl">Save</button>
+      <button onclick="closeModal('findingModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════
+const FINDINGS_DATA=[
+  {id:'sig-203',code:'2.03',sev:'Significant',cat:'2',catName:'2. Temperature Management',repeat:false,
+   desc:'Cold TCS Foods must be held ≤ 41°F',
+   items:[{i:'Julienne Ham',d:'47°F @ Maketable cold well'},{i:'Tomatoes, Diced',d:'47°F @ Maketable cold well'}],
+   action:'Repair maketable cold well immediately. Log temps hourly until serviced.'},
+  {id:'sig-401',code:'4.01',sev:'Significant',cat:'4',catName:'4. Expiration Dates',repeat:false,
+   desc:'Ingredients/products not expired and correctly labeled',
+   items:[{i:'Tomatoes, Diced (mfr pkg)',d:'Expired 06/13/2026 — Walk-in cooler'},{i:'Alfredo',d:'Expired 06/13/2026 — Walk-in cooler'},{i:'WingStreet Wings',d:'Expired 06/12/2026 — Walk-in cooler'}],
+   action:'Date label checks 3× daily. FIFO strictly enforced. Add walk-in sweep to manager line check.'},
+  {id:'103',code:'1.03',sev:'Secondary',cat:'1',catName:'1. Health & Hygiene',repeat:true,
+   desc:'Proper hand washing procedures — hand sink stocked',
+   items:[{i:'Sanitizer dispenser',d:'Not properly stocked — Cut table area'}],
+   action:'Check/restock sanitizer dispensers every shift. Add to opening/closing checklist.'},
+  {id:'202',code:'2.02',sev:'Secondary',cat:'2',catName:'2. Temperature Management',repeat:true,
+   desc:'Cold holding/storage equipment temperature meets standard',
+   items:[{i:'Reach-in freezer',d:'Internal thermometer inaccurate — displayed −10°F, actual 10°F'}],
+   action:'Replace/recalibrate reach-in freezer thermometer. Verify all equipment thermometers weekly.'},
+  {id:'501',code:'5.01',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:true,
+   desc:'Food and packaging properly stored and covered',
+   items:[{i:'Case of dough',d:'Not covered in Walk-in freezer'}],
+   action:'All food must be covered in storage at all times. Retrain all TMs.'},
+  {id:'502',code:'5.02',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:true,
+   desc:'Utensils/smallwares properly cleaned and in good repair',
+   items:[{i:'Large Perforated Pan ×5',d:'Carbon build-up — Clean dish storage'},{i:'Medium Perforated Pan ×5',d:'Carbon build-up'},{i:'Fryer bowl(s)',d:'Not cleaned/sanitized every 4 hrs'}],
+   action:'Deep clean or replace carbon pans. Create 4-hr utensil cleaning log.'},
+  {id:'503',code:'5.03',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:true,
+   desc:'No cross-contamination conditions present',
+   items:[{i:'Alconox fryer detergent',d:'Stored on floor — Receiving area'}],
+   action:'Store ALL chemicals on proper shelving. Daily chemical storage audit.'},
+  {id:'507',code:'5.07',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:true,
+   desc:'Equipment properly cleaned, free of debris/buildup',
+   items:[{i:'Fryer',d:'Grease build-up on exterior'},{i:'Maketable',d:'Black/brown organic material on exterior'}],
+   action:'Deep clean fryer and maketable exteriors. Add to daily closing checklist.'},
+  {id:'508',code:'5.08',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:true,
+   desc:'Sanitizer buckets at correct concentration',
+   items:[{i:'Quat Sanitizer',d:'Less than 150 ppm — Fryers area'}],
+   action:'Test Quat every 2 hrs with strips. Required: 150–400 ppm. Log all readings.'},
+  {id:'509',code:'5.09',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:true,
+   desc:'Cleaning supplies available and stored clean',
+   items:[{i:'Wet mops',d:'Not hung to dry'}],
+   action:'Always hang mops after use. Add to closing checklist.'},
+  {id:'510',code:'5.10',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:true,
+   desc:'BOH floors, walls, ceiling, shelving are clean',
+   items:[{i:'BOH shelving',d:'Grease/dust — Cut table'},{i:'Floor tiles',d:'Grease build-up — Fryers'},{i:'BOH shelving',d:'Grease — Prep area'},{i:'Walk-in cooler shelving',d:'Crusted food debris'}],
+   action:'Schedule BOH deep clean now. Assign zone ownership. Daily/weekly cleaning schedule.'},
+  {id:'511',code:'5.11',sev:'Secondary',cat:'5',catName:'5. Prevent Contamination',repeat:false,
+   desc:'Lighting properly shielded/shatter-proof in food prep areas',
+   items:[{i:'Light shield',d:'1 fixture missing pieces — Wing saucing station'}],
+   action:'Replace/repair light shield immediately. Document repair with photos.'},
+  {id:'601',code:'6.01',sev:'Secondary',cat:'6',catName:'6. Pest Control',repeat:false,
+   desc:'Weekly Pest Walks completed and retained on file (30 days)',
+   items:[{i:'Pest walk documents',d:'1 document incomplete — not on file 30 days'}],
+   action:'Complete pest walks weekly. File documentation ≥30 days. Vendor: Orkin.'},
+  {id:'604',code:'6.04',sev:'Secondary',cat:'6',catName:'6. Pest Control',repeat:false,
+   desc:'BOH floors, walls, ceiling in good repair',
+   items:[{i:'BOH walls',d:'Holes observed — Dish area'}],
+   action:'Repair wall holes immediately — pest entry risk. Document repair with work order + photos.'},
+  {id:'703',code:'7.03',sev:'Secondary',cat:'7',catName:'7. Restaurant Basics',repeat:false,
+   desc:'Team member food safety training completed and records retained',
+   items:[{i:'Training records',d:'Shift lead unable to access HutLink/Learn Now'}],
+   action:'Restore HutLink/Learn Now access. Print and file training records on-site as backup.'},
+  {id:'707',code:'7.07',sev:'Secondary',cat:'7',catName:'7. Restaurant Basics',repeat:true,
+   desc:'Gaskets clean and in good repair',
+   items:[{i:'Reach-in freezer',d:'Torn gasket'},{i:'Maketable',d:'Black/brown organic material — 2 gaskets'},{i:'Walk-in cooler glass door',d:'Torn gasket'},{i:'Walk-in cooler main door',d:'Black/brown organic material'}],
+   action:'Replace torn gaskets (reach-in + walk-in glass). Deep clean all gaskets. Order parts now.'}
+];
+
+const WEEK_DEFS=[
+  {label:'Week 1 (partial)',start:'2026-06-14',end:'2026-06-15',window:false},
+  {label:'Week 2',start:'2026-06-16',end:'2026-06-22',window:false},
+  {label:'Week 3',start:'2026-06-23',end:'2026-06-29',window:false},
+  {label:'Week 4',start:'2026-06-30',end:'2026-07-06',window:false},
+  {label:'Week 5',start:'2026-07-07',end:'2026-07-13',window:false},
+  {label:'Week 6 ⭐ WINDOW OPEN',start:'2026-07-14',end:'2026-07-20',window:true},
+  {label:'Week 7',start:'2026-07-21',end:'2026-07-27',window:false},
+  {label:'Week 8',start:'2026-07-28',end:'2026-08-03',window:false},
+  {label:'Week 9',start:'2026-08-04',end:'2026-08-10',window:false},
+  {label:'Week 10 (partial)',start:'2026-08-11',end:'2026-08-12',window:false}
+];
+
+const CHECKLIST_ITEMS=[
+  {id:'t-make',cat:'🌡️ Temperature',label:'Maketable cold well ≤ 41°F',finding:'sig-203',type:'temp',unit:'°F',threshold:41,critical:true},
+  {id:'t-wic',cat:'🌡️ Temperature',label:'Walk-in cooler ≤ 38°F',finding:null,type:'temp',unit:'°F',threshold:38,critical:false},
+  {id:'t-freeze',cat:'🌡️ Temperature',label:'Reach-in freezer thermometer verified',finding:'202',type:'check',critical:false},
+  {id:'d-wic',cat:'📅 Date Labels',label:'Walk-in cooler — all items dated, none expired',finding:'sig-401',type:'check',critical:true},
+  {id:'d-make',cat:'📅 Date Labels',label:'Maketable — all items dated',finding:'sig-401',type:'check',critical:true},
+  {id:'s-disp',cat:'🧼 Sanitation',label:'Sanitizer dispensers stocked (cut table, all sinks)',finding:'103',type:'check',critical:false},
+  {id:'s-quat',cat:'🧼 Sanitation',label:'Quat sanitizer 150–400 ppm',finding:'508',type:'temp',unit:'ppm',threshold:150,critical:false},
+  {id:'s-cloth',cat:'🧼 Sanitation',label:'Wiping cloths in sanitizer buckets',finding:'508',type:'check',critical:false},
+  {id:'c-fryer',cat:'🧹 Cleaning',label:'Fryer exterior clean (no grease buildup)',finding:'507',type:'check',critical:false},
+  {id:'c-make',cat:'🧹 Cleaning',label:'Maketable exterior clean',finding:'507',type:'check',critical:false},
+  {id:'c-floor',cat:'🧹 Cleaning',label:'BOH floors clean (fryer area + prep)',finding:'510',type:'check',critical:false},
+  {id:'c-shelf',cat:'🧹 Cleaning',label:'BOH shelving clean (cut table + cooler)',finding:'510',type:'check',critical:false},
+  {id:'c-mop',cat:'🧹 Cleaning',label:'Mops hung to dry after use',finding:'509',type:'check',critical:false},
+  {id:'st-cov',cat:'📦 Storage',label:'All food covered in cooler/freezer',finding:'501',type:'check',critical:false},
+  {id:'st-chem',cat:'📦 Storage',label:'Chemicals on shelving — not on floor',finding:'503',type:'check',critical:false},
+  {id:'eq-gask',cat:'🔧 Equipment',label:'Gaskets checked — no damage or buildup',finding:'707',type:'check',critical:false},
+  {id:'eq-light',cat:'🔧 Equipment',label:'Light shields intact and in place',finding:'511',type:'check',critical:false},
+  {id:'doc-train',cat:'📋 Documentation',label:'Food safety training records accessible',finding:'703',type:'check',critical:false},
+  {id:'doc-pest',cat:'📋 Documentation',label:'Weekly pest walk completed and documented',finding:'601',type:'check',critical:false},
+];
+
+const HISTORY=[
+  {date:'Oct 29',score:8},{date:'Mar 3',score:9},{date:'Apr 11',score:4},
+  {date:'Nov 25',score:15},{date:'Jan 5',score:3},{date:'May 13',score:14},{date:'Jun 14',score:16}
+];
+
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const FILE_ICONS={pdf:'📄',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'🖼️',webp:'🖼️'};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+/*
+  Supabase tables:
+  entries        → table: entries
+  resolved       → table: finding_resolutions
+  clLog          → table: checklist_logs
+  tempLogs       → table: temp_logs
+  pestWalks      → table: pest_walks
+  uploadedFiles  → table: uploaded_files (+ Supabase Storage for actual blobs)
+*/
+function ls(k,d){try{return JSON.parse(localStorage.getItem('fscc_'+k))??d;}catch{return d;}}
+function lsSave(k,v){localStorage.setItem('fscc_'+k,JSON.stringify(v));}
+
+let entries=ls('entries',[]);
+let resolved=ls('resolved',{});
+let clLog=ls('clLog',{});
+let tempLogs=ls('tempLogs',[]);
+let pestWalks=ls('pestWalks',[]);
+let uploadedFiles=ls('uploadedFiles',[]);  // master file library
+
+// Pending uploads buffer (before detail modal confirmation)
+let _pendingUploads=[];
+let _editFindingId=null;
+let _editEntryId=null;
+let _entryPendingFiles=[]; // files staged for the current entry modal
+
+function saveAll(){
+  lsSave('entries',entries);
+  lsSave('resolved',resolved);
+  lsSave('clLog',clLog);
+  lsSave('tempLogs',tempLogs);
+  lsSave('pestWalks',pestWalks);
+  // Don't save uploadedFiles with fileData to main key if large — save separately
+  const meta=uploadedFiles.map(f=>({...f}));
+  lsSave('uploadedFiles',meta);
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function showTab(name){
+  ['dashboard','tracker','ops','files','findings'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('hidden',t!==name);
+    document.getElementById('nav-'+t).classList.toggle('tab-active',t===name);
+  });
+  if(name==='dashboard') renderDashboard();
+  if(name==='tracker')   renderCalendar();
+  if(name==='ops')       renderOps();
+  if(name==='files')     renderFiles();
+  if(name==='findings')  renderFindings();
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function closeModal(id){document.getElementById(id).classList.add('hidden');}
+function fmtDate(d){
+  if(!d)return'';
+  const dt=new Date(d+'T12:00:00');
+  return `${DAYS[dt.getDay()]}, ${MONS[dt.getMonth()]} ${dt.getDate()}`;
+}
+function fileExt(name){return(name||'').split('.').pop().toLowerCase();}
+function fileIcon(name){return FILE_ICONS[fileExt(name)]||'📎';}
+
+// Extract date from filename — tries common patterns
+function extractDateFromFilename(name){
+  const s=name.replace(/[_\s]/g,'-');
+  // YYYY-MM-DD
+  let m=s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m&&isValidDate(m[1],m[2],m[3]))return`${m[1]}-${m[2]}-${m[3]}`;
+  // MM-DD-YYYY or MM-DD-YY
+  m=s.match(/(\d{1,2})-(\d{1,2})-(\d{2,4})/);
+  if(m){const y=m[3].length===2?'20'+m[3]:m[3];if(isValidDate(y,m[1].padStart(2,'0'),m[2].padStart(2,'0']))return`${y}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;}
+  // Jun14, June14, etc.
+  const monNames=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  m=s.toLowerCase().match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[- _]?(\d{1,2})[- _]?(\d{2,4})?/);
+  if(m){
+    const mo=String(monNames.indexOf(m[1])+1).padStart(2,'0');
+    const day=m[2].padStart(2,'0');
+    const yr=m[3]?(m[3].length===2?'20'+m[3]:m[3]):'2026';
+    return`${yr}-${mo}-${day}`;
+  }
+  return null;
+}
+function isValidDate(y,m,d){
+  const dt=new Date(`${y}-${m}-${d}`);
+  return!isNaN(dt.getTime());
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+function renderDashboard(){
+  const maxS=Math.max(...HISTORY.map(h=>h.score));
+  document.getElementById('scoreChart').innerHTML=HISTORY.map(h=>`
+    <div class="flex flex-col items-center gap-1 flex-1 min-w-[36px]">
+      <div class="text-xs font-bold ${h.score>=10?'text-red-500':'text-green-500'}">${h.score}</div>
+      <div class="w-full rounded-t ${h.score>=10?'bg-red-400':'bg-green-400'} ${h.date==='Jun 14'?'ring-2 ring-offset-1 ring-red-600':''}"
+           style="height:${Math.round(h.score/maxS*64)+4}px"></div>
+      <div class="text-xs text-gray-400 whitespace-nowrap">${h.date}</div>
+    </div>`).join('');
+
+  const doneCount=FINDINGS_DATA.filter(f=>resolved[f.id]?.done).length;
+  const simScore=Math.max(0,16-doneCount);
+  document.getElementById('simScore').textContent=simScore;
+  document.getElementById('simStatus').textContent=simScore>=10?'UNDERPERFORMING':simScore>0?'Improving ✓':'🎉 Passing!';
+  document.getElementById('simStatus').className='mt-1 text-xs font-bold '+(simScore>=10?'text-red-600':simScore>0?'text-amber-600':'text-green-600');
+
+  const pct=Math.round(doneCount/FINDINGS_DATA.length*100);
+  document.getElementById('findingsResCount').textContent=`${doneCount} / ${FINDINGS_DATA.length} resolved`;
+  document.getElementById('findingsResBar').style.width=pct+'%';
+
+  const ppl=['Shannell','JaDon','SL','Harold'];
+  const cols=['bg-blue-500','bg-purple-500','bg-green-500','bg-orange-500'];
+  const stats={ALL:{t:0,d:0}};
+  ppl.forEach(p=>stats[p]={t:0,d:0});
+  entries.forEach(e=>{
+    stats.ALL.t++;if(e.status==='Complete')stats.ALL.d++;
+    if(stats[e.person]){stats[e.person].t++;if(e.status==='Complete')stats[e.person].d++;}
+  });
+  const items=[{k:'ALL',l:'Overall',c:'bg-red-500'},...ppl.map((p,i)=>({k:p,l:p,c:cols[i]}))];
+  document.getElementById('progressSummary').innerHTML=items.map(({k,l,c})=>{
+    const s=stats[k];const p=s.t?Math.round(s.d/s.t*100):0;
+    return`<div class="bg-gray-50 rounded-xl p-3">
+      <div class="text-xs font-semibold text-gray-500 mb-1">${l}</div>
+      <div class="text-2xl font-black text-gray-800">${p}<span class="text-sm font-normal text-gray-400">%</span></div>
+      <div class="text-xs text-gray-400">${s.d}/${s.t} done</div>
+      <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1.5"><div class="${c} h-1.5 rounded-full" style="width:${p}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════════════
+function buildWeeks(){
+  return WEEK_DEFS.map(w=>{
+    const s=new Date(w.start+'T12:00:00'),e=new Date(w.end+'T12:00:00'),days=[];
+    for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1))days.push(d.toISOString().slice(0,10));
+    return{...w,days};
+  });
+}
+const WEEKS=buildWeeks();
+
+function dotColor(st){return{Assigned:'#3b82f6','In Progress':'#f59e0b',Complete:'#22c55e','Not Completed':'#ef4444'}[st]||'#9ca3af';}
+function cellCls(all){
+  if(!all.length)return'cell-empty';
+  const s=all.map(e=>e.status);
+  if(s.includes('Not Completed'))return'cell-notdone';
+  if(s.includes('In Progress'))return'cell-inprogress';
+  if(s.every(x=>x==='Complete'))return'cell-complete';
+  return'cell-assigned';
+}
+
+function renderCalendar(){
+  const pf=document.getElementById('filterPerson').value;
+  const sf=document.getElementById('filterStatus').value;
+  const grid=document.getElementById('calendarGrid');
+  grid.innerHTML='';
+  WEEKS.forEach(week=>{
+    const wrap=document.createElement('div');
+    wrap.className=`rounded-xl shadow-sm overflow-hidden border ${week.window?'border-amber-400 window-week':'border-gray-200 bg-white'}`;
+    const hdr=document.createElement('div');
+    hdr.className=week.window?'window-hdr px-4 py-2 text-sm font-bold flex items-center justify-between':'bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-600 flex items-center justify-between';
+    hdr.innerHTML=`<span>${week.label}</span><span class="${week.window?'text-amber-200':'text-gray-400'} font-normal text-xs">${week.start.slice(5)} – ${week.end.slice(5)}</span>`;
+    wrap.appendChild(hdr);
+    const cells=document.createElement('div');
+    cells.className='grid gap-2 p-3';
+    cells.style.gridTemplateColumns=`repeat(${week.days.length},minmax(0,1fr))`;
+    week.days.forEach(date=>{
+      const all=entries.filter(e=>e.date===date);
+      const vis=all.filter(e=>(pf==='ALL'||e.person===pf)&&(sf==='ALL'||e.status===sf));
+      const dayFiles=uploadedFiles.filter(f=>f.date===date);
+      const d=new Date(date+'T12:00:00');
+      const cell=document.createElement('div');
+      cell.className=`${cellCls(all)} rounded-lg p-2 cursor-pointer hover:brightness-95 transition-all min-h-[70px] flex flex-col`;
+      cell.onclick=()=>openDayView(date);
+      cell.innerHTML=`<div class="flex justify-between items-start mb-1">
+        <span class="text-xs font-bold text-gray-600">${DAYS[d.getDay()]}</span>
+        <span class="text-xs text-gray-400">${d.getDate()}</span>
+      </div>
+      ${vis.slice(0,3).map(e=>`<div class="text-xs truncate flex items-center gap-1 mb-0.5">
+        <span style="width:7px;height:7px;border-radius:50%;background:${dotColor(e.status)};flex-shrink:0;display:inline-block"></span>
+        <span class="truncate text-gray-700">${e.person||'—'}</span></div>`).join('')}
+      ${all.length>3?`<div class="text-xs text-gray-400">+${all.length-3}</div>`:''}
+      ${dayFiles.length?`<div class="text-xs text-gray-500 mt-auto flex items-center gap-0.5">📎 ${dayFiles.length}</div>`:''}
+      ${!all.length&&!dayFiles.length?`<div class="text-xs text-gray-400 mt-auto">+ add</div>`:''}`;
+      cells.appendChild(cell);
+    });
+    wrap.appendChild(cells);
+    grid.appendChild(wrap);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// ENTRY MODAL
+// ═══════════════════════════════════════════════
+function openDayView(date){
+  _editEntryId=null;
+  _entryPendingFiles=[];
+  const d=new Date(date+'T12:00:00');
+  document.getElementById('emSub').textContent=date;
+  document.getElementById('emTitle').textContent=fmtDate(date);
+  document.getElementById('emDate').value=date;
+  document.getElementById('emDateField').classList.add('hidden');
+  const dayE=entries.filter(e=>e.date===date);
+  const exBox=document.getElementById('emExisting');
+  const dayFiles=uploadedFiles.filter(f=>f.date===date);
+  if(dayE.length||dayFiles.length){
+    exBox.classList.remove('hidden');
+    let html='';
+    dayE.forEach(e=>{
+      const ef=uploadedFiles.filter(f=>f.entryId===e.id);
+      html+=`<div onclick="loadEntryInModal('${e.id}')" class="flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer hover:bg-gray-50">
+        <span style="width:9px;height:9px;border-radius:50%;background:${dotColor(e.status)};flex-shrink:0"></span>
+        <span class="font-semibold text-sm flex-1">${e.person||'—'}</span>
+        <span class="text-xs text-gray-500">${e.status||''}</span>
+        ${ef.length?`<span class="text-xs text-gray-400">📎 ${ef.length}</span>`:''}
+        <span class="text-gray-400 text-xs">›</span>
+      </div>`;
+    });
+    if(dayFiles.length){
+      html+=`<div class="text-xs text-gray-400 mt-1">📎 ${dayFiles.length} file(s) attached to this day — <button onclick="showTab('files')" class="text-blue-500 underline">view in Files tab</button></div>`;
+    }
+    document.getElementById('emExistingList').innerHTML=html;
+  } else {
+    exBox.classList.add('hidden');
+  }
+  clearEntryForm();
+  document.getElementById('emDel').classList.add('hidden');
+  renderEntryAttachedFiles();
+  document.getElementById('entryModal').classList.remove('hidden');
+}
+
+function openEntryModal(date,id){
+  _editEntryId=id||null;
+  _entryPendingFiles=[];
+  clearEntryForm();
+  document.getElementById('emExisting').classList.add('hidden');
+  if(id){loadEntryInModal(id);}
+  else if(date){
+    document.getElementById('emDate').value=date;
+    document.getElementById('emTitle').textContent=fmtDate(date);
+    document.getElementById('emSub').textContent=date;
+    document.getElementById('emDateField').classList.add('hidden');
+  } else {
+    document.getElementById('emTitle').textContent='New Entry';
+    document.getElementById('emSub').textContent='Select date + fill details';
+    document.getElementById('emDateField').classList.remove('hidden');
+  }
+  renderEntryAttachedFiles();
+  document.getElementById('entryModal').classList.remove('hidden');
+}
+
+function loadEntryInModal(id){
+  const e=entries.find(x=>x.id===id);if(!e)return;
+  _editEntryId=id;
+  document.getElementById('emId').value=id;
+  document.getElementById('emDate').value=e.date;
+  document.getElementById('emPerson').value=e.person||'';
+  document.getElementById('emStatus').value=e.status||'';
+  document.getElementById('emRgm').value=e.rgmSchedule||'';
+  document.getElementById('emDm').value=e.dmSchedule||'';
+  document.getElementById('emTask').value=e.tasks||'';
+  document.getElementById('emAudit').value=e.auditDesc||'';
+  document.getElementById('emNotes').value=e.notes||'';
+  document.getElementById('emDel').classList.remove('hidden');
+  document.getElementById('emExisting').classList.add('hidden');
+  document.getElementById('emTitle').textContent=fmtDate(e.date);
+  document.getElementById('emSub').textContent='Editing entry';
+  _entryPendingFiles=[];
+  renderEntryAttachedFiles();
+  updateEmBadge();
+}
+
+function clearEntryForm(){
+  ['emId','emDate','emRgm','emDm','emTask','emAudit','emNotes'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('emPerson').value='';
+  document.getElementById('emStatus').value='';
+  document.getElementById('emBadge').classList.add('hidden');
+  _entryPendingFiles=[];
+}
+
+function updateEmBadge(){
+  const s=document.getElementById('emStatus').value,b=document.getElementById('emBadge');
+  if(!s){b.classList.add('hidden');return;}
+  const m={Assigned:'bg-blue-100 text-blue-700','In Progress':'bg-amber-100 text-amber-700',Complete:'bg-green-100 text-green-700','Not Completed':'bg-red-100 text-red-700'};
+  b.className=`text-xs font-bold text-center rounded-lg py-1.5 ${m[s]||'bg-gray-100 text-gray-600'}`;
+  b.textContent={Assigned:'🔵 Assigned','In Progress':'🟡 In Progress',Complete:'✅ Complete','Not Completed':'🔴 Not Completed'}[s]||s;
+  b.classList.remove('hidden');
+}
+
+function saveEntry(){
+  const date=document.getElementById('emDate').value||document.getElementById('emDatePick')?.value;
+  const person=document.getElementById('emPerson').value;
+  const status=document.getElementById('emStatus').value;
+  // No required fields — just need at least a date
+  const data={date:date||new Date().toISOString().slice(0,10),person,status,
+    rgmSchedule:document.getElementById('emRgm').value,
+    dmSchedule:document.getElementById('emDm').value,
+    tasks:document.getElementById('emTask').value,
+    auditDesc:document.getElementById('emAudit').value,
+    notes:document.getElementById('emNotes').value,
+    updatedAt:new Date().toISOString()
+  };
+  let entryId;
+  const eid=document.getElementById('emId').value||_editEntryId;
+  if(eid){
+    const i=entries.findIndex(e=>e.id===eid);
+    if(i>=0){entries[i]={...entries[i],...data};entryId=eid;}
+  } else {
+    data.id=uid();entries.push(data);entryId=data.id;
+  }
+  // Save any pending files attached to this entry
+  _entryPendingFiles.forEach(f=>{
+    uploadedFiles.push({...f,entryId,date:data.date});
+  });
+  _entryPendingFiles=[];
+  saveAll();closeModal('entryModal');renderCalendar();renderDashboard();
+}
+
+function deleteEntry(){
+  const id=document.getElementById('emId').value||_editEntryId;
+  if(!id||!confirm('Delete this entry?'))return;
+  entries=entries.filter(e=>e.id!==id);
+  saveAll();closeModal('entryModal');renderCalendar();renderDashboard();
+}
+
+// Entry file attachment
+function handleEntryFileDrop(ev){
+  ev.preventDefault();
+  document.getElementById('entryDropZone').classList.remove('drag-over');
+  Array.from(ev.dataTransfer.files).forEach(f=>processEntryFile(f));
+}
+function handleEntryFileSelect(input){
+  Array.from(input.files).forEach(f=>processEntryFile(f));
+  input.value='';
+}
+function processEntryFile(file){
+  const ext=fileExt(file.name);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const fileObj={id:uid(),fileName:file.name,ext,size:file.size,
+      category:'Other',desc:'',uploadedBy:'',
+      fileData:file.size<3*1024*1024?e.target.result:'[too-large]',
+      tooLarge:file.size>=3*1024*1024,
+      createdAt:new Date().toISOString()
+    };
+    _entryPendingFiles.push(fileObj);
+    renderEntryAttachedFiles();
+  };
+  reader.readAsDataURL(file);
+}
+function renderEntryAttachedFiles(){
+  const date=document.getElementById('emDate').value;
+  const existing=date?uploadedFiles.filter(f=>f.entryId&&entries.find(e=>e.id===f.entryId&&e.date===date)):[];
+  const el=document.getElementById('entryAttachedFiles');
+  const all=[
+    ...existing.map(f=>({...f,_existing:true})),
+    ..._entryPendingFiles.map(f=>({...f,_existing:false}))
+  ];
+  if(!all.length){el.innerHTML='';return;}
+  el.innerHTML=all.map(f=>`
+    <div class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 text-sm">
+      <span class="text-base">${fileIcon(f.fileName)}</span>
+      <span class="flex-1 truncate text-gray-700">${f.fileName}</span>
+      <span class="text-xs text-gray-400">${f.category||''}</span>
+      ${f._existing?`<button onclick="viewFile('${f.id}')" class="text-xs text-blue-500 hover:underline">View</button>`:'<span class="text-xs text-green-600 font-semibold">New</span>'}
+      ${!f._existing?`<button onclick="removeEntryPending('${f.id}')" class="text-red-400 hover:text-red-600 text-xs">✕</button>`:''}
+    </div>`).join('');
+}
+function removeEntryPending(id){
+  _entryPendingFiles=_entryPendingFiles.filter(f=>f.id!==id);
+  renderEntryAttachedFiles();
+}
+
+// ═══════════════════════════════════════════════
+// DAILY OPS
+// ═══════════════════════════════════════════════
+function renderOps(){
+  const today=new Date().toISOString().slice(0,10);
+  const dateEl=document.getElementById('opsDate');
+  if(!dateEl.value)dateEl.value=today;
+  const date=dateEl.value;
+  if(!clLog[date])clLog[date]={};
+  const cats={};
+  CHECKLIST_ITEMS.forEach(item=>{if(!cats[item.cat])cats[item.cat]=[];cats[item.cat].push(item);});
+  const done=CHECKLIST_ITEMS.filter(i=>clLog[date][i.id]?.done).length;
+  const pct=Math.round(done/CHECKLIST_ITEMS.length*100);
+  document.getElementById('checklistPct').textContent=`${done}/${CHECKLIST_ITEMS.length} — ${pct}%`;
+  let html='';
+  Object.entries(cats).forEach(([cat,items])=>{
+    html+=`<div class="px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase">${cat}</div>`;
+    items.forEach(item=>{
+      const entry=clLog[date][item.id]||{};
+      const isDone=entry.done||false;
+      const val=entry.value||'';
+      const isAlert=item.type==='temp'&&val&&item.threshold&&(
+        (item.unit==='°F'&&parseFloat(val)>item.threshold)||
+        (item.unit==='ppm'&&parseFloat(val)<item.threshold)
+      );
+      html+=`<div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 last:border-0 ${isDone&&!isAlert?'bg-green-50':''}">
+        <input type="checkbox" class="w-4 h-4 accent-green-500 flex-shrink-0" ${isDone?'checked':''}
+          onchange="toggleChecklist('${date}','${item.id}',this.checked,document.getElementById('cl-val-${item.id}')?.value)">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-gray-700 flex items-center gap-1.5 flex-wrap">
+            ${item.critical?'<span class="text-red-500 font-bold text-xs">★</span>':''}
+            ${item.label}
+            ${item.finding?`<span class="text-xs text-blue-400">[${item.finding.replace('sig-','')}]</span>`:''}
+          </div>
+        </div>
+        ${item.type==='temp'?`<div class="flex items-center gap-1">
+          <input id="cl-val-${item.id}" type="number" step="0.1" value="${val}" placeholder="—"
+            class="w-16 border rounded px-2 py-1 text-xs ${isAlert?'border-red-400 bg-red-50 text-red-700 font-bold':''}"
+            onchange="toggleChecklist('${date}','${item.id}',true,this.value)">
+          <span class="text-xs text-gray-400">${item.unit}</span>
+          ${isAlert?`<span class="text-xs text-red-600 font-bold">⚠️</span>`:''}
+        </div>`:''}
+      </div>`;
+    });
+  });
+  document.getElementById('checklistBody').innerHTML=html;
+  const badge=document.getElementById('opsCompletionBadge');
+  badge.textContent=pct>=100?'✅ All Complete':pct>=75?`🟡 ${pct}% Done`:`🔴 ${pct}% Done`;
+  badge.className='text-sm font-bold '+(pct>=100?'text-green-600':pct>=75?'text-amber-600':'text-red-600');
+
+  const dayTemps=tempLogs.filter(t=>t.date===date);
+  document.getElementById('tempLogBody').innerHTML=dayTemps.length?
+    `<div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-left text-gray-500 border-b">
+      <th class="pb-1 pr-3">Time</th><th class="pb-1 pr-3">Equipment</th><th class="pb-1 pr-3">Temp</th><th class="pb-1 pr-3">By</th><th class="pb-1">Notes</th></tr></thead>
+      <tbody>${dayTemps.map(t=>{
+        const al=(t.equipment.includes('Maketable')&&parseFloat(t.temp)>41)||(t.equipment.includes('Walk-in Cooler')&&parseFloat(t.temp)>38);
+        return`<tr class="${al?'text-red-600 font-semibold':''} border-b border-gray-50">
+          <td class="py-1.5 pr-3">${t.time}</td><td class="pr-3">${t.equipment}</td>
+          <td class="pr-3 font-bold">${t.temp}°F ${al?'⚠️':''}</td><td class="pr-3">${t.by||''}</td><td>${t.notes||''}</td></tr>`;
+      }).join('')}</tbody></table></div>`
+    :`<div class="text-sm text-gray-400 text-center py-4">No temperatures logged for ${date}</div>`;
+
+  document.getElementById('pestLogBody').innerHTML=pestWalks.length?
+    `<div class="space-y-2">${pestWalks.slice(-8).reverse().map(p=>`
+      <div class="flex items-center gap-3 text-sm border-b pb-2">
+        <span class="text-green-500 text-lg flex-shrink-0">${p.result==='No Issues Found'?'✓':'⚠️'}</span>
+        <div class="flex-1"><div class="font-semibold text-gray-700">${p.date}</div>
+        <div class="text-xs text-gray-500">${p.result} · ${p.by||'—'} · ${p.vendor||'Orkin'}</div>
+        ${p.notes?`<div class="text-xs text-gray-400">${p.notes}</div>`:''}</div>
+      </div>`).join('')}</div>`
+    :`<div class="text-sm text-gray-400 text-center py-4">No pest walks logged yet.</div>`;
+}
+
+function toggleChecklist(date,itemId,done,value){
+  if(!clLog[date])clLog[date]={};
+  clLog[date][itemId]={done,value:value||'',time:new Date().toTimeString().slice(0,5)};
+  saveAll();renderOps();
+}
+
+function openTempModal(){
+  const today=document.getElementById('opsDate').value||new Date().toISOString().slice(0,10);
+  document.getElementById('tlDate').value=today;
+  document.getElementById('tlTime').value=new Date().toTimeString().slice(0,5);
+  ['tlEquip','tlTemp','tlNotes'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('tlBy').value='';
+  document.getElementById('tlAlert').classList.add('hidden');
+  document.getElementById('tempModal').classList.remove('hidden');
+}
+function saveTempLog(){
+  const equip=document.getElementById('tlEquip').value;
+  const temp=document.getElementById('tlTemp').value;
+  if(!equip||!temp){alert('Equipment and temperature are required.');return;}
+  tempLogs.push({id:uid(),date:document.getElementById('tlDate').value,
+    time:document.getElementById('tlTime').value,equipment:equip,
+    temp:parseFloat(temp),by:document.getElementById('tlBy').value,
+    notes:document.getElementById('tlNotes').value});
+  saveAll();closeModal('tempModal');renderOps();
+}
+
+function openPestModal(){
+  document.getElementById('pwDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('pwBy').value='';
+  document.getElementById('pwVendor').value='Orkin';
+  document.getElementById('pwResult').value='No Issues Found';
+  document.getElementById('pwNotes').value='';
+  document.getElementById('pestModal').classList.remove('hidden');
+}
+function savePestWalk(){
+  const date=document.getElementById('pwDate').value;
+  const wd=WEEK_DEFS.find(w=>w.start<=date&&w.end>=date);
+  pestWalks.push({id:uid(),date,weekOf:wd?.start||date,
+    by:document.getElementById('pwBy').value,vendor:document.getElementById('pwVendor').value,
+    result:document.getElementById('pwResult').value,notes:document.getElementById('pwNotes').value});
+  saveAll();closeModal('pestModal');renderOps();
+}
+
+// ═══════════════════════════════════════════════
+// UPLOADED FILES
+// ═══════════════════════════════════════════════
+// Pending upload queue
+let _pendingQueue=[];  // [{file, fileObj}]
+let _currentPendingIdx=0;
+
+function handleMainFileSelect(input){
+  Array.from(input.files).forEach(f=>queueFile(f));
+  input.value='';
+}
+function handleFileDrop(ev){
+  ev.preventDefault();
+  document.getElementById('mainDropZone').classList.remove('drag-over');
+  Array.from(ev.dataTransfer.files).forEach(f=>queueFile(f));
+}
+
+function queueFile(file){
+  const ext=fileExt(file.name);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const autoDate=extractDateFromFilename(file.name)||new Date().toISOString().slice(0,10);
+    const fileObj={
+      id:uid(),
+      fileName:file.name,
+      ext,size:file.size,
+      category:'Other',
+      desc:'',
+      uploadedBy:'',
+      date:autoDate,
+      fileData:file.size<3*1024*1024?e.target.result:'[too-large]',
+      tooLarge:file.size>=3*1024*1024,
+      createdAt:new Date().toISOString(),
+      entryId:null
+    };
+    _pendingQueue.push(fileObj);
+    showPendingUploads();
+  };
+  reader.readAsDataURL(file);
+}
+
+function showPendingUploads(){
+  if(!_pendingQueue.length)return;
+  document.getElementById('pendingUploads').classList.remove('hidden');
+  document.getElementById('pendingList').innerHTML=_pendingQueue.map((f,i)=>`
+    <div class="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+      <span class="text-xl">${fileIcon(f.fileName)}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-gray-700 truncate">${f.fileName}</div>
+        <div class="text-xs text-gray-400">Auto-detected date: <span class="text-blue-600 font-semibold">${f.date}</span></div>
+      </div>
+      <button onclick="openUploadDetail(${i})" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 hover:bg-gray-50">Edit details</button>
+      <button onclick="removePendingUpload(${i})" class="text-red-400 hover:text-red-600">✕</button>
+    </div>`).join('');
+}
+
+function openUploadDetail(idx){
+  _currentPendingIdx=idx;
+  const f=_pendingQueue[idx];
+  document.getElementById('udIdx').value=idx;
+  document.getElementById('udTitle').textContent=f.fileName;
+  document.getElementById('udFileName').textContent=f.fileName+(f.tooLarge?' (large file — metadata only, full storage with Supabase)':'');
+  document.getElementById('udCat').value=f.category||'Other';
+  document.getElementById('udDate').value=f.date||'';
+  document.getElementById('udBy').value=f.uploadedBy||'';
+  document.getElementById('udDesc').value=f.desc||'';
+  // Preview
+  const prev=document.getElementById('udPreview');
+  if(['jpg','jpeg','png','gif','webp'].includes(f.ext)&&f.fileData&&f.fileData!=='[too-large]'){
+    prev.innerHTML=`<img src="${f.fileData}" style="max-height:120px;max-width:100%;border-radius:.5rem;object-fit:contain">`;
+  } else if(f.ext==='pdf'){
+    prev.innerHTML=`<div class="text-4xl">📄</div>`;
+  } else {
+    prev.innerHTML=`<div class="text-4xl">${fileIcon(f.fileName)}</div>`;
+  }
+  document.getElementById('uploadDetailModal').classList.remove('hidden');
+}
+
+function confirmUploadDetail(){
+  const idx=parseInt(document.getElementById('udIdx').value);
+  _pendingQueue[idx]={
+    ..._pendingQueue[idx],
+    category:document.getElementById('udCat').value,
+    date:document.getElementById('udDate').value,
+    uploadedBy:document.getElementById('udBy').value,
+    desc:document.getElementById('udDesc').value
+  };
+  closeModal('uploadDetailModal');
+  showPendingUploads();
+}
+
+function removePendingUpload(idx){
+  _pendingQueue.splice(idx,1);
+  if(!_pendingQueue.length){
+    document.getElementById('pendingUploads').classList.add('hidden');
+  } else {
+    showPendingUploads();
+  }
+}
+
+function savePendingUploads(){
+  _pendingQueue.forEach(f=>{
+    // Auto-attach to matching calendar entry if one exists on that date
+    const dateEntries=entries.filter(e=>e.date===f.date);
+    if(dateEntries.length===1) f.entryId=dateEntries[0].id;
+    // if multiple entries on that date, leave entryId null (shown as day-level attachment)
+    uploadedFiles.push(f);
+  });
+  _pendingQueue=[];
+  document.getElementById('pendingUploads').classList.add('hidden');
+  document.getElementById('pendingList').innerHTML='';
+  saveAll();
+  renderFiles();
+  renderCalendar();
+}
+
+function renderFiles(){
+  const catF=document.getElementById('fileFilterCat').value;
+  const search=document.getElementById('fileSearch').value.toLowerCase();
+  let list=uploadedFiles.filter(f=>{
+    if(catF!=='ALL'&&f.category!==catF)return false;
+    if(search&&!f.fileName.toLowerCase().includes(search)&&!(f.desc||'').toLowerCase().includes(search))return false;
+    return true;
+  });
+  // Sort by date desc
+  list.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  document.getElementById('fileTotalBadge').textContent=`${list.length} file${list.length!==1?'s':''}`;
+  if(!list.length){
+    document.getElementById('filesList').innerHTML=`<div class="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm">
+      <div class="text-4xl mb-3">📎</div>
+      <div class="font-semibold">No files uploaded yet</div>
+      <div class="text-sm mt-1">Upload audits, test results, photos, or any supporting docs above</div>
+    </div>`;
+    return;
+  }
+  // Group by date
+  const byDate={};
+  list.forEach(f=>{const k=f.date||'No Date';if(!byDate[k])byDate[k]=[];byDate[k].push(f);});
+  const keys=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+  document.getElementById('filesList').innerHTML=keys.map(date=>`
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="bg-gray-50 px-4 py-2 text-xs font-bold text-gray-600 flex items-center justify-between">
+        <span>${date!=='No Date'?fmtDate(date)+' — '+date:'No Date'}</span>
+        <span class="text-gray-400">${byDate[date].length} file${byDate[date].length!==1?'s':''}</span>
+      </div>
+      ${byDate[date].map(f=>`
+        <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+          <div class="text-2xl flex-shrink-0">${fileIcon(f.fileName)}</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-gray-800 text-sm truncate">${f.fileName}</div>
+            <div class="text-xs text-gray-400 flex flex-wrap gap-2 mt-0.5">
+              <span class="bg-gray-100 text-gray-600 rounded px-1.5">${f.category||'Other'}</span>
+              ${f.uploadedBy?`<span>👤 ${f.uploadedBy}</span>`:''}
+              ${f.desc?`<span class="truncate max-w-[200px]">${f.desc}</span>`:''}
+              ${f.tooLarge?`<span class="text-amber-600">Large file (metadata only)</span>`:''}
+              ${f.entryId?`<span class="text-green-600">📅 Linked to tracker entry</span>`:''}
+            </div>
+          </div>
+          <div class="flex gap-1 flex-shrink-0">
+            ${(!f.tooLarge&&f.fileData&&f.fileData!=='[too-large]')?`<button onclick="viewFile('${f.id}')" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">View</button>`:''}
+            ${(!f.tooLarge&&f.fileData&&f.fileData!=='[too-large]')?`<button onclick="downloadFile('${f.id}')" class="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-2 py-1 rounded">↓</button>`:''}
+            <button onclick="deleteFile('${f.id}')" class="text-xs text-red-300 hover:text-red-500 px-2 py-1 rounded">✕</button>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function viewFile(id){
+  const f=uploadedFiles.find(x=>x.id===id);if(!f)return;
+  document.getElementById('fvTitle').textContent=f.fileName;
+  const body=document.getElementById('fvBody');
+  if(['jpg','jpeg','png','gif','webp'].includes(f.ext)){
+    body.innerHTML=`<img src="${f.fileData}" style="max-width:100%;max-height:75vh;object-fit:contain;display:block;margin:auto">`;
+  } else if(f.ext==='pdf'){
+    body.innerHTML=`<embed src="${f.fileData}" type="application/pdf" width="100%" style="height:75vh">`;
+  } else {
+    body.innerHTML=`<div class="text-center text-gray-400 py-12 text-4xl">📎<br><div class="text-base mt-2">${f.fileName}</div></div>`;
+  }
+  document.getElementById('fileViewerModal').classList.remove('hidden');
+}
+
+function downloadFile(id){
+  const f=uploadedFiles.find(x=>x.id===id);if(!f||!f.fileData)return;
+  const a=document.createElement('a');
+  a.href=f.fileData;a.download=f.fileName;a.click();
+}
+
+function deleteFile(id){
+  if(!confirm('Remove this file?'))return;
+  uploadedFiles=uploadedFiles.filter(f=>f.id!==id);
+  saveAll();renderFiles();renderCalendar();
+}
+
+// ═══════════════════════════════════════════════
+// FINDINGS
+// ═══════════════════════════════════════════════
+function renderFindings(){
+  const sevF=document.getElementById('fSev').value;
+  const catF=document.getElementById('fCat').value;
+  const unresF=document.getElementById('fUnres').checked;
+  let list=FINDINGS_DATA.filter(f=>{
+    if(sevF!=='ALL'&&f.sev!==sevF)return false;
+    if(catF!=='ALL'&&f.cat!==catF)return false;
+    if(unresF&&resolved[f.id]?.done)return false;
+    return true;
+  });
+  const done=FINDINGS_DATA.filter(f=>resolved[f.id]?.done).length;
+  const pct=Math.round(done/FINDINGS_DATA.length*100);
+  document.getElementById('resCount').textContent=`${done} / ${FINDINGS_DATA.length} resolved`;
+  document.getElementById('resBar').style.width=pct+'%';
+  document.getElementById('findingsList').innerHTML=list.map(f=>{
+    const r=resolved[f.id]||{};
+    return`<div class="bg-white rounded-xl shadow-sm border ${r.done?'border-green-200 opacity-80':f.sev==='Significant'?'border-red-200':'border-gray-200'} overflow-hidden">
+      <div class="flex gap-3 p-4">
+        <div class="flex-shrink-0 pt-0.5">
+          <input type="checkbox" class="w-5 h-5 cursor-pointer accent-green-500" ${r.done?'checked':''}
+            onchange="toggleFinding('${f.id}',this.checked)">
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-1.5 mb-1">
+            <span class="font-extrabold text-gray-800">${f.code}</span>
+            ${f.sev==='Significant'?`<span class="badge-sig">⚠️ SIGNIFICANT</span>`:`<span class="badge-sec">Secondary</span>`}
+            ${f.repeat?`<span class="badge-rep">🔁 Repeat</span>`:''}
+            <span class="bg-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded">${f.catName}</span>
+            ${r.done?`<span class="badge-ok">✓ Resolved</span>`:''}
+          </div>
+          <div class="text-sm font-semibold text-gray-700 mb-2">${f.desc}</div>
+          <div class="space-y-1 mb-2">
+            ${f.items.map(it=>`<div class="text-xs bg-gray-50 rounded px-3 py-1.5">
+              <span class="font-semibold text-gray-700">${it.i}</span><span class="text-gray-500 ml-2">${it.d}</span>
+            </div>`).join('')}
+          </div>
+          <div class="text-xs bg-blue-50 rounded px-3 py-2 mb-2">
+            <span class="font-bold text-blue-700">✏️ Action: </span><span class="text-blue-800">${f.action}</span>
+          </div>
+          ${r.notes?`<div class="text-xs bg-green-50 rounded px-3 py-2">
+            <span class="font-bold text-green-700">📝 Notes: </span><span class="text-green-800">${r.notes}</span>
+            ${r.by?`<span class="text-green-600"> — ${r.by}</span>`:''}
+          </div>`:''}
+        </div>
+        <button onclick="openFindingModal('${f.id}')" class="flex-shrink-0 text-gray-300 hover:text-gray-500 text-xl self-start">✎</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFinding(id,done){
+  if(!resolved[id])resolved[id]={};
+  resolved[id].done=done;resolved[id].resolvedDate=done?new Date().toISOString():null;
+  saveAll();renderFindings();renderDashboard();
+}
+
+function openFindingModal(id){
+  _editFindingId=id;
+  const f=FINDINGS_DATA.find(x=>x.id===id);
+  document.getElementById('fmTitle').textContent=`${f.code} — ${f.desc}`;
+  document.getElementById('fmBody').textContent=f.items.map(i=>i.i+' — '+i.d).join('\n');
+  document.getElementById('fmNotes').value=resolved[id]?.notes||'';
+  document.getElementById('fmBy').value=resolved[id]?.by||'';
+  document.getElementById('findingModal').classList.remove('hidden');
+}
+function saveFindingNotes(){
+  const id=_editFindingId;if(!id)return;
+  if(!resolved[id])resolved[id]={};
+  resolved[id].notes=document.getElementById('fmNotes').value;
+  resolved[id].by=document.getElementById('fmBy').value;
+  saveAll();closeModal('findingModal');renderFindings();
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+document.getElementById('tlTemp').addEventListener('input',function(){
+  const equip=document.getElementById('tlEquip').value;
+  const temp=parseFloat(this.value);
+  const alertEl=document.getElementById('tlAlert');
+  if(!isNaN(temp)){
+    const isAlert=(equip.includes('Maketable')&&temp>41)||(equip.includes('Walk-in Cooler')&&temp>38)||(equip.includes('Reach-in')&&temp>0);
+    alertEl.className=`text-xs font-bold rounded-lg px-3 py-2 text-center ${isAlert?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`;
+    alertEl.textContent=isAlert?`⚠️ OUT OF RANGE — ${temp}°F exceeds threshold. Do not serve from this unit.`:`✓ ${temp}°F is within acceptable range`;
+    alertEl.classList.remove('hidden');
+  } else {alertEl.classList.add('hidden');}
+});
+
+// Countdown
+const daysToWindow=Math.round((new Date('2026-07-14')-new Date())/86400000);
+const today=new Date().toISOString().slice(0,10);
+if(today>='2026-07-14'&&today<='2026-07-20') document.getElementById('windowBanner').classList.remove('hidden');
+if(daysToWindow>0&&daysToWindow<=60){
+  document.getElementById('countdownCard').classList.remove('hidden');
+  document.getElementById('countdownDays').textContent=daysToWindow;
+}
+
+showTab('dashboard');
+</script>
+</body>
+</html>

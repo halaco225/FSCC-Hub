@@ -1,0 +1,39 @@
+# ============================================================
+# FSCC Hub — Render Deploy Config
+# Drop this file at the root of your GitHub repo,
+# then connect the repo in Render → New Static Site
+# ============================================================
+
+services:
+  - type: web
+    name: fscc-hub
+    runtime: static
+    buildCommand: ""           # No build step needed — pure HTML
+    staticPublishPath: .       # Serve from repo root
+    pullRequestPreviewsEnabled: false
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /fscc-hub.html
+
+# ── Instructions ─────────────────────────────────────────
+# 1. Push fscc-hub.html (and this file) to your GitHub repo
+# 2. Go to dashboard.render.com → New → Static Site
+# 3. Connect your GitHub repo
+# 4. Render auto-detects render.yaml — click Deploy
+# 5. Your site will be live at https://fscc-hub.onrender.com
+#    (or your custom domain)
+#
+# To enable Supabase sync:
+# 6. In Supabase: run supabase-migration.sql in SQL Editor
+# 7. Copy your project URL + anon key from
+#    Supabase → Settings → API
+# 8. In fscc-hub.html, fill in:
+#      const SUPABASE_URL = 'https://xxxx.supabase.co';
+#      const SUPABASE_KEY = 'your-anon-key';
+# 9. Commit + push → Render auto-redeploys
+# ============================================================
