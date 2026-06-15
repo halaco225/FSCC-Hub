@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FSCC Hub — Store 039376</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 body{font-family:'Inter',system-ui,sans-serif;background:#f8fafc}
@@ -584,14 +583,28 @@ const FILE_ICONS={pdf:'📄',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'�
   pestWalks      → table: pest_walks
   uploadedFiles  → table: uploaded_files (+ Supabase Storage for actual blobs)
 */
-// ── Supabase client ──────────────────────────────────────
-let _sb = null;
-let _supabaseReady = false;
-try {
-  _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  _supabaseReady = true;
-} catch(e) {
-  console.warn('Supabase init failed — running in local mode:', e);
+// ── Supabase REST API (no SDK — uses built-in fetch) ─────
+const _SB_HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Content-Type': 'application/json'
+};
+const _supabaseReady = !!(SUPABASE_URL && SUPABASE_KEY);
+
+async function _sbSelect(table, orderCol){
+  const url = SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(orderCol?'&order='+orderCol+'.asc':'');
+  const r = await fetch(url, {headers: _SB_HEADERS});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function _sbUpsert(table, rows){
+  if(!rows||!rows.length) return;
+  const r = await fetch(SUPABASE_URL+'/rest/v1/'+table, {
+    method:'POST',
+    headers:{..._SB_HEADERS, 'Prefer':'resolution=merge-duplicates'},
+    body: JSON.stringify(rows)
+  });
+  if(!r.ok) throw new Error(await r.text());
 }
 
 function ls(k,d){try{return JSON.parse(localStorage.getItem('fscc_'+k))??d;}catch{return d;}}
@@ -622,65 +635,56 @@ function saveAll(){
 
 async function _syncToSupabase(){
   try{
-    // entries
-    if(entries.length){
-      await _sb.from('entries').upsert(entries.map(e=>({
-        id:e.id, date:e.date, person:e.person||null, status:e.status||null,
-        rgm_schedule:e.rgmSchedule||null, dm_schedule:e.dmSchedule||null,
-        tasks:e.tasks||null, audit_desc:e.auditDesc||null, notes:e.notes||null,
-        updated_at:e.updatedAt||new Date().toISOString()
-      })),{onConflict:'id',ignoreDuplicates:false});
-    }
-    // finding_resolutions
+    await _sbUpsert('entries', entries.map(e=>({
+      id:e.id, date:e.date, person:e.person||null, status:e.status||null,
+      rgm_schedule:e.rgmSchedule||null, dm_schedule:e.dmSchedule||null,
+      tasks:e.tasks||null, audit_desc:e.auditDesc||null, notes:e.notes||null,
+      updated_at:e.updatedAt||new Date().toISOString()
+    })));
     const resRows=Object.entries(resolved).map(([finding_id,v])=>({
       finding_id, done:v.done||false, notes:v.notes||null,
       resolved_by:v.by||null, resolved_date:v.resolvedDate||null,
       updated_at:new Date().toISOString()
     }));
-    if(resRows.length) await _sb.from('finding_resolutions').upsert(resRows,{onConflict:'finding_id'});
-    // checklist_logs
+    await _sbUpsert('finding_resolutions', resRows);
     const clRows=[];
     Object.entries(clLog).forEach(([date,items])=>{
       Object.entries(items).forEach(([item_id,v])=>{
         clRows.push({date,item_id,done:v.done||false,value:v.value||null,logged_time:v.time||null});
       });
     });
-    if(clRows.length) await _sb.from('checklist_logs').upsert(clRows,{onConflict:'date,item_id'});
-    // temp_logs
-    if(tempLogs.length) await _sb.from('temp_logs').upsert(tempLogs.map(t=>({
-      id:t.id, date:t.date, time:t.time, equipment:t.equipment,
-      temp:t.temp, logged_by:t.by||null, notes:t.notes||null
-    })),{onConflict:'id'});
-    // pest_walks
-    if(pestWalks.length) await _sb.from('pest_walks').upsert(pestWalks.map(p=>({
-      id:p.id, date:p.date, week_of:p.weekOf||null,
-      completed_by:p.by||null, vendor:p.vendor||null,
-      result:p.result||null, notes:p.notes||null
-    })),{onConflict:'id'});
-    // uploaded_files (metadata only — no fileData blob)
-    const fileMeta=uploadedFiles.map(f=>({
-      id:f.id, file_name:f.fileName, ext:f.ext, size:f.size||null,
-      category:f.category||null, description:f.desc||null,
-      uploaded_by:f.uploadedBy||null, date:f.date||null,
-      entry_id:f.entryId||null, storage_path:null
-    }));
-    if(fileMeta.length) await _sb.from('uploaded_files').upsert(fileMeta,{onConflict:'id'});
+    await _sbUpsert('checklist_logs', clRows);
+    await _sbUpsert('temp_logs', tempLogs.map(t=>({
+      id:t.id,date:t.date,time:t.time,equipment:t.equipment,
+      temp:t.temp,logged_by:t.by||null,notes:t.notes||null
+    })));
+    await _sbUpsert('pest_walks', pestWalks.map(p=>({
+      id:p.id,date:p.date,week_of:p.weekOf||null,
+      completed_by:p.by||null,vendor:p.vendor||null,
+      result:p.result||null,notes:p.notes||null
+    })));
+    await _sbUpsert('uploaded_files', uploadedFiles.map(f=>({
+      id:f.id,file_name:f.fileName,ext:f.ext,size:f.size||null,
+      category:f.category||null,description:f.desc||null,
+      uploaded_by:f.uploadedBy||null,date:f.date||null,
+      entry_id:f.entryId||null,storage_path:null
+    })));
   }catch(err){console.warn('Supabase sync error:',err);}
 }
 
 // ── Load from Supabase on startup ────────────────────────
 async function loadFromSupabase(){
   try{
-    const [eRes,rRes,cRes,tRes,pRes,fRes]=await Promise.all([
-      _sb.from('entries').select('*').order('date'),
-      _sb.from('finding_resolutions').select('*'),
-      _sb.from('checklist_logs').select('*'),
-      _sb.from('temp_logs').select('*').order('date'),
-      _sb.from('pest_walks').select('*').order('date'),
-      _sb.from('uploaded_files').select('*').order('created_at')
+    const [eData,rData,cData,tData,pData,fData]=await Promise.all([
+      _sbSelect('entries','date'),
+      _sbSelect('finding_resolutions'),
+      _sbSelect('checklist_logs'),
+      _sbSelect('temp_logs','date'),
+      _sbSelect('pest_walks','date'),
+      _sbSelect('uploaded_files','created_at')
     ]);
-    if(eRes.data?.length){
-      entries=eRes.data.map(r=>({
+    if(eData?.length){
+      entries=eData.map(r=>({
         id:r.id, date:r.date, person:r.person||'', status:r.status||'',
         rgmSchedule:r.rgm_schedule||'', dmSchedule:r.dm_schedule||'',
         tasks:r.tasks||'', auditDesc:r.audit_desc||'',
@@ -688,39 +692,38 @@ async function loadFromSupabase(){
       }));
       lsSave('entries',entries);
     }
-    if(rRes.data?.length){
+    if(rData?.length){
       resolved={};
-      rRes.data.forEach(r=>{resolved[r.finding_id]={
+      rData.forEach(r=>{resolved[r.finding_id]={
         done:r.done, notes:r.notes||'', by:r.resolved_by||'', resolvedDate:r.resolved_date
       };});
       lsSave('resolved',resolved);
     }
-    if(cRes.data?.length){
+    if(cData?.length){
       clLog={};
-      cRes.data.forEach(r=>{
+      cData.forEach(r=>{
         if(!clLog[r.date])clLog[r.date]={};
         clLog[r.date][r.item_id]={done:r.done,value:r.value||'',time:r.logged_time||''};
       });
       lsSave('clLog',clLog);
     }
-    if(tRes.data?.length){
-      tempLogs=tRes.data.map(r=>({
+    if(tData?.length){
+      tempLogs=tData.map(r=>({
         id:r.id, date:r.date, time:r.time, equipment:r.equipment,
         temp:r.temp, by:r.logged_by||'', notes:r.notes||''
       }));
       lsSave('tempLogs',tempLogs);
     }
-    if(pRes.data?.length){
-      pestWalks=pRes.data.map(r=>({
+    if(pData?.length){
+      pestWalks=pData.map(r=>({
         id:r.id, date:r.date, weekOf:r.week_of, by:r.completed_by||'',
         vendor:r.vendor||'Orkin', result:r.result||'', notes:r.notes||''
       }));
       lsSave('pestWalks',pestWalks);
     }
-    if(fRes.data?.length){
-      // Merge: keep local fileData (blobs), update metadata from Supabase
+    if(fData?.length){
       const localById=Object.fromEntries(uploadedFiles.map(f=>[f.id,f]));
-      uploadedFiles=fRes.data.map(r=>({
+      uploadedFiles=fData.map(r=>({
         ...(localById[r.id]||{}),
         id:r.id, fileName:r.file_name, ext:r.ext||'', size:r.size,
         category:r.category||'Other', desc:r.description||'',
@@ -734,14 +737,8 @@ async function loadFromSupabase(){
     const activeTab=activeNav?.id?.replace('nav-','');
     if(activeTab) showTab(activeTab);
 
-    // Real-time: refresh when teammates make changes
-    _sb.channel('fscc-changes')
-      .on('postgres_changes',{event:'*',schema:'public',table:'entries'},()=>loadFromSupabase())
-      .on('postgres_changes',{event:'*',schema:'public',table:'finding_resolutions'},()=>loadFromSupabase())
-      .on('postgres_changes',{event:'*',schema:'public',table:'checklist_logs'},()=>loadFromSupabase())
-      .on('postgres_changes',{event:'*',schema:'public',table:'temp_logs'},()=>loadFromSupabase())
-      .on('postgres_changes',{event:'*',schema:'public',table:'pest_walks'},()=>loadFromSupabase())
-      .subscribe();
+    // Poll every 60s so teammates' changes show up
+    setTimeout(()=>{ if(_supabaseReady) loadFromSupabase(); }, 60000);
 
     document.getElementById('localBanner').textContent='✅ Synced with Supabase — data shared across all devices in real time.';
     document.getElementById('localBanner').className='bg-green-50 border-b border-green-200 text-green-700 text-xs text-center py-1.5 px-4';
