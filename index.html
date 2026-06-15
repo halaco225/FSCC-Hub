@@ -43,7 +43,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 <div id="windowBanner" class="hidden bg-amber-400 text-amber-900 text-center py-2 font-bold text-sm sticky top-0 z-50">
   ⭐ WINDOW OPEN — Jul 14–20, 2026 · FSCC Audit Window Is Active ⭐
 </div>
-<div id="localBanner" class="bg-blue-50 border-b border-blue-200 text-blue-700 text-xs text-center py-1.5 px-4">
+<div class="bg-blue-50 border-b border-blue-200 text-blue-700 text-xs text-center py-1.5 px-4">
   📦 Local mode — data saves to this browser only. Add Supabase credentials above to sync across all devices.
 </div>
 
@@ -435,12 +435,12 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 <!-- Finding Modal -->
 <div id="findingModal" class="overlay hidden" onclick="if(event.target===this)closeModal('findingModal')">
-  <div class="modal shadow-2xl" style="max-width:28rem">
-    <div class="bg-gray-800 text-white px-5 py-4 rounded-t-2xl flex justify-between">
+  <div class="modal shadow-2xl" style="max-width:32rem;max-height:90vh;overflow-y:auto">
+    <div class="bg-gray-800 text-white px-5 py-4 rounded-t-2xl flex justify-between sticky top-0 z-10">
       <div class="font-bold text-sm" id="fmTitle">Finding Notes</div>
       <button onclick="closeModal('findingModal')" class="text-gray-400 hover:text-white text-2xl">&times;</button>
     </div>
-    <div class="px-5 py-4 space-y-3">
+    <div class="px-5 py-4 space-y-4">
       <div id="fmBody" class="text-sm bg-gray-50 rounded-lg p-3 text-gray-700 whitespace-pre-line"></div>
       <div><label class="label">Corrective Action Notes</label>
         <textarea id="fmNotes" rows="3" class="field resize-none" placeholder="What was done to fix this…"></textarea></div>
@@ -448,8 +448,26 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
         <input id="fmBy" type="text" list="personList5" class="field" placeholder="Name">
         <datalist id="personList5"><option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option></datalist>
       </div>
+      <!-- Before Photos -->
+      <div>
+        <label class="label mb-1">📸 Before Photos <span class="text-gray-400 font-normal">(audit photos)</span></label>
+        <div id="fmBeforePhotos" class="flex flex-wrap gap-2 mb-2"></div>
+        <label class="flex items-center gap-2 cursor-pointer border-2 border-dashed border-gray-300 rounded-lg px-3 py-2 hover:border-red-400 text-xs text-gray-500">
+          <span>+ Add before photo</span>
+          <input type="file" accept="image/*" multiple class="hidden" onchange="handleFindingPhoto(this,'before')">
+        </label>
+      </div>
+      <!-- After Photos -->
+      <div>
+        <label class="label mb-1">✅ After Photos <span class="text-gray-400 font-normal">(corrected)</span></label>
+        <div id="fmAfterPhotos" class="flex flex-wrap gap-2 mb-2"></div>
+        <label class="flex items-center gap-2 cursor-pointer border-2 border-dashed border-gray-300 rounded-lg px-3 py-2 hover:border-green-400 text-xs text-gray-500">
+          <span>+ Add after photo</span>
+          <input type="file" accept="image/*" multiple class="hidden" onchange="handleFindingPhoto(this,'after')">
+        </label>
+      </div>
     </div>
-    <div class="px-5 pb-5 flex gap-2">
+    <div class="px-5 pb-5 flex gap-2 sticky bottom-0 bg-white pt-3 border-t border-gray-100">
       <button onclick="saveFindingNotes()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl">Save</button>
       <button onclick="closeModal('findingModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Cancel</button>
     </div>
@@ -893,10 +911,10 @@ function renderCalendar(){
         <span class="text-xs font-bold text-gray-600">${DAYS[d.getDay()]}</span>
         <span class="text-xs text-gray-400">${d.getDate()}</span>
       </div>
-      ${vis.slice(0,3).map(e=>`<div class="text-xs truncate flex items-center gap-1 mb-0.5">
+      ${vis.slice(0,3).map(e=>`<div onclick="event.stopPropagation();openEntryModal('${e.date}','${e.id}')" class="text-xs truncate flex items-center gap-1 mb-0.5 rounded hover:bg-black/10 px-0.5 cursor-pointer">
         <span style="width:7px;height:7px;border-radius:50%;background:${dotColor(e.status)};flex-shrink:0;display:inline-block"></span>
         <span class="truncate text-gray-700">${e.person||'—'}</span></div>`).join('')}
-      ${all.length>3?`<div class="text-xs text-gray-400">+${all.length-3}</div>`:''}
+      ${all.length>3?`<div onclick="event.stopPropagation();openDayView('${date}')" class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">+${all.length-3} more</div>`:''}
       ${dayFiles.length?`<div class="text-xs text-gray-500 mt-auto flex items-center gap-0.5">📎 ${dayFiles.length}</div>`:''}
       ${!all.length&&!dayFiles.length?`<div class="text-xs text-gray-400 mt-auto">+ add</div>`:''}`;
       cells.appendChild(cell);
@@ -1443,6 +1461,15 @@ function renderFindings(){
             <span class="font-bold text-green-700">📝 Notes: </span><span class="text-green-800">${r.notes}</span>
             ${r.by?`<span class="text-green-600"> — ${r.by}</span>`:''}
           </div>`:''}
+          ${(()=>{
+            const bp=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='before').length;
+            const ap=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='after').length;
+            if(!bp&&!ap)return'';
+            return`<div class="flex gap-2 mt-1">
+              ${bp?`<span class="text-xs bg-orange-50 text-orange-600 rounded px-2 py-0.5">📸 ${bp} before</span>`:''}
+              ${ap?`<span class="text-xs bg-green-50 text-green-600 rounded px-2 py-0.5">✅ ${ap} after</span>`:''}
+            </div>`;
+          })()}
         </div>
         <button onclick="openFindingModal('${f.id}')" class="flex-shrink-0 text-gray-300 hover:text-gray-500 text-xl self-start">✎</button>
       </div>
@@ -1456,21 +1483,76 @@ function toggleFinding(id,done){
   saveAll();renderFindings();renderDashboard();
 }
 
+let _findingPendingPhotos=[];
+
 function openFindingModal(id){
   _editFindingId=id;
+  _findingPendingPhotos=[];
   const f=FINDINGS_DATA.find(x=>x.id===id);
   document.getElementById('fmTitle').textContent=`${f.code} — ${f.desc}`;
   document.getElementById('fmBody').textContent=f.items.map(i=>i.i+' — '+i.d).join('\n');
   document.getElementById('fmNotes').value=resolved[id]?.notes||'';
   document.getElementById('fmBy').value=resolved[id]?.by||'';
+  renderFindingPhotos(id);
   document.getElementById('findingModal').classList.remove('hidden');
 }
+
+function handleFindingPhoto(input, photoType){
+  Array.from(input.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      _findingPendingPhotos.push({
+        id:uid(), fileName:file.name, ext:fileExt(file.name),
+        size:file.size, photoType,
+        fileData:file.size<3*1024*1024?e.target.result:'[too-large]',
+        tooLarge:file.size>=3*1024*1024,
+        category:'Finding Photo', findingId:_editFindingId,
+        createdAt:new Date().toISOString()
+      });
+      renderFindingPhotos(_editFindingId);
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+
+function renderFindingPhotos(findingId){
+  ['before','after'].forEach(type=>{
+    const existing=uploadedFiles.filter(f=>f.findingId===findingId&&f.photoType===type);
+    const pending=_findingPendingPhotos.filter(f=>f.photoType===type);
+    const all=[...existing,...pending];
+    const el=document.getElementById(`fm${type==='before'?'Before':'After'}Photos`);
+    el.innerHTML=all.map((f,i)=>{
+      const src=f.fileData&&f.fileData!=='[too-large]'?f.fileData:'';
+      const isPending=!f._saved;
+      return`<div class="relative group">
+        ${src?`<img src="${src}" class="w-16 h-16 object-cover rounded-lg border-2 ${type==='before'?'border-orange-300':'border-green-300'}">`
+              :`<div class="w-16 h-16 rounded-lg border-2 border-gray-200 flex items-center justify-center text-2xl bg-gray-50">📷</div>`}
+        <button onclick="removeFindingPhoto('${f.id}',${isPending},'${type}')"
+          class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs leading-none flex items-center justify-center opacity-0 group-hover:opacity-100">×</button>
+        <div class="text-xs text-center text-gray-400 mt-0.5 w-16 truncate">${type}</div>
+      </div>`;
+    }).join('');
+  });
+}
+
+function removeFindingPhoto(id, isPending, type){
+  if(isPending){
+    _findingPendingPhotos=_findingPendingPhotos.filter(f=>f.id!==id);
+  } else {
+    uploadedFiles=uploadedFiles.filter(f=>f.id!==id);
+  }
+  renderFindingPhotos(_editFindingId);
+}
+
 function saveFindingNotes(){
   const id=_editFindingId;if(!id)return;
   if(!resolved[id])resolved[id]={};
   resolved[id].notes=document.getElementById('fmNotes').value;
   resolved[id].by=document.getElementById('fmBy').value;
-  saveAll();closeModal('findingModal');renderFindings();
+  _findingPendingPhotos.forEach(f=>uploadedFiles.push({...f,_saved:true}));
+  _findingPendingPhotos=[];
+  saveAll();closeModal('findingModal');renderFindings();renderDashboard();
 }
 
 // ═══════════════════════════════════════════════
