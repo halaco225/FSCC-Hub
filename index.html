@@ -87,17 +87,19 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 <!-- ═══ DASHBOARD ═══ -->
 <section id="tab-dashboard" class="max-w-6xl mx-auto px-4 py-5 space-y-4">
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-500 col-span-2 md:col-span-1">
+    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-red-500 col-span-2 md:col-span-1 cursor-pointer hover:shadow-md transition-shadow" onclick="openFindingsBySev('Significant')">
       <div class="text-xs font-bold text-red-500 uppercase mb-1">⚠️ Significant</div>
       <div class="text-4xl font-black text-red-600">2</div>
       <div class="text-xs text-gray-500 mt-1 space-y-0.5"><div>• 2.03 Cold temp holding</div><div>• 4.01 Expired products</div></div>
+      <div class="text-xs text-red-400 mt-2 font-semibold">Tap to view details →</div>
     </div>
-    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-amber-500">
+    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-amber-500 cursor-pointer hover:shadow-md transition-shadow" onclick="openFindingsBySev('Secondary')">
       <div class="text-xs font-bold text-amber-600 uppercase mb-1">Secondary</div>
       <div class="text-4xl font-black text-amber-600">14</div>
       <div class="text-xs text-red-600 font-bold">12 repeats</div>
       <div class="mt-2 w-full bg-gray-200 rounded-full h-1.5"><div class="bg-amber-400 h-1.5 rounded-full" style="width:86%"></div></div>
       <div class="text-xs text-gray-400 mt-1">86% were repeats</div>
+      <div class="text-xs text-amber-500 mt-2 font-semibold">Tap to view details →</div>
     </div>
     <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500">
       <div class="text-xs font-bold text-purple-600 uppercase mb-1">🎯 Score Simulator</div>
@@ -261,6 +263,17 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 </section>
 
 <!-- ═══ MODALS ═══ -->
+
+<!-- Severity Drilldown Modal -->
+<div id="sevModal" class="overlay hidden" onclick="if(event.target===this)closeModal('sevModal')">
+  <div class="modal shadow-2xl" style="max-width:38rem">
+    <div id="sevModalHdr" class="bg-red-700 text-white px-5 py-4 rounded-t-2xl flex justify-between items-center sticky top-0 z-10">
+      <div class="font-bold text-lg" id="sevModalTitle">Findings</div>
+      <button onclick="closeModal('sevModal')" class="text-red-200 hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div id="sevModalBody" class="px-5 py-4 space-y-5 overflow-y-auto" style="max-height:78vh"></div>
+  </div>
+</div>
 
 <!-- Entry Modal -->
 <div id="entryModal" class="overlay hidden" onclick="if(event.target===this)closeModal('entryModal')">
@@ -444,9 +457,26 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
       <div id="fmBody" class="text-sm bg-gray-50 rounded-lg p-3 text-gray-700 whitespace-pre-line"></div>
       <div><label class="label">Corrective Action Notes</label>
         <textarea id="fmNotes" rows="3" class="field resize-none" placeholder="What was done to fix this…"></textarea></div>
-      <div><label class="label">Resolved By</label>
-        <input id="fmBy" type="text" list="personList5" class="field" placeholder="Name">
-        <datalist id="personList5"><option>Shannell</option><option>JaDon</option><option>SL</option><option>Harold</option></datalist>
+      <div>
+        <label class="label">Sign-Off — all 3 required to mark Resolved</label>
+        <div class="space-y-2 mt-1">
+          <div class="flex items-center gap-3 border rounded-lg px-3 py-2.5 bg-gray-50">
+            <input type="checkbox" id="fmRgmCheck" class="w-4 h-4 accent-green-500 flex-shrink-0" onchange="updateSignoffStatus()">
+            <span class="text-xs font-black text-gray-700 w-10">RGM</span>
+            <input id="fmRgmName" type="text" class="field flex-1" placeholder="RGM name" style="padding:.3rem .6rem">
+          </div>
+          <div class="flex items-center gap-3 border rounded-lg px-3 py-2.5 bg-gray-50">
+            <input type="checkbox" id="fmAcCheck" class="w-4 h-4 accent-green-500 flex-shrink-0" onchange="updateSignoffStatus()">
+            <span class="text-xs font-black text-gray-700 w-10">AC</span>
+            <input id="fmAcName" type="text" class="field flex-1" placeholder="AC name" style="padding:.3rem .6rem">
+          </div>
+          <div class="flex items-center gap-3 border rounded-lg px-3 py-2.5 bg-gray-50">
+            <input type="checkbox" id="fmRdoCheck" class="w-4 h-4 accent-green-500 flex-shrink-0" onchange="updateSignoffStatus()">
+            <span class="text-xs font-black text-gray-700 w-10">RDO</span>
+            <input id="fmRdoName" type="text" class="field flex-1" placeholder="RDO name" style="padding:.3rem .6rem">
+          </div>
+        </div>
+        <div id="fmSignoffStatus" class="text-xs mt-2 rounded-lg px-3 py-2 bg-gray-100 text-gray-500 font-semibold text-center"></div>
       </div>
       <!-- Before Photos -->
       <div>
@@ -661,7 +691,10 @@ async function _syncToSupabase(){
     })));
     const resRows=Object.entries(resolved).map(([finding_id,v])=>({
       finding_id, done:v.done||false, notes:v.notes||null,
-      resolved_by:v.by||null, resolved_date:v.resolvedDate||null,
+      resolved_by:v.rgmName||v.by||null, resolved_date:v.resolvedDate||null,
+      rgm_signed:v.rgmSigned||false, rgm_name:v.rgmName||null,
+      ac_signed:v.acSigned||false, ac_name:v.acName||null,
+      rdo_signed:v.rdoSigned||false, rdo_name:v.rdoName||null,
       updated_at:new Date().toISOString()
     }));
     await _sbUpsert('finding_resolutions', resRows);
@@ -713,7 +746,10 @@ async function loadFromSupabase(){
     if(rData?.length){
       resolved={};
       rData.forEach(r=>{resolved[r.finding_id]={
-        done:r.done, notes:r.notes||'', by:r.resolved_by||'', resolvedDate:r.resolved_date
+        done:r.done, notes:r.notes||'', by:r.resolved_by||'', resolvedDate:r.resolved_date,
+        rgmSigned:r.rgm_signed||false, rgmName:r.rgm_name||'',
+        acSigned:r.ac_signed||false, acName:r.ac_name||'',
+        rdoSigned:r.rdo_signed||false, rdoName:r.rdo_name||''
       };});
       lsSave('resolved',resolved);
     }
@@ -1434,11 +1470,31 @@ function renderFindings(){
   document.getElementById('resBar').style.width=pct+'%';
   document.getElementById('findingsList').innerHTML=list.map(f=>{
     const r=resolved[f.id]||{};
-    return`<div class="bg-white rounded-xl shadow-sm border ${r.done?'border-green-200 opacity-80':f.sev==='Significant'?'border-red-200':'border-gray-200'} overflow-hidden">
+    const beforePhotos=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='before');
+    const afterPhotos=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='after');
+    const signoffHtml=`<div class="flex flex-wrap gap-1.5 mt-2">
+      <span class="text-xs rounded px-2 py-0.5 font-bold ${r.rgmSigned?'bg-green-100 text-green-700':'bg-gray-100 text-gray-400'}">RGM ${r.rgmSigned?'✅':'⬜'}${r.rgmName?' '+r.rgmName:''}</span>
+      <span class="text-xs rounded px-2 py-0.5 font-bold ${r.acSigned?'bg-green-100 text-green-700':'bg-gray-100 text-gray-400'}">AC ${r.acSigned?'✅':'⬜'}${r.acName?' '+r.acName:''}</span>
+      <span class="text-xs rounded px-2 py-0.5 font-bold ${r.rdoSigned?'bg-green-100 text-green-700':'bg-gray-100 text-gray-400'}">RDO ${r.rdoSigned?'✅':'⬜'}${r.rdoName?' '+r.rdoName:''}</span>
+    </div>`;
+    const photosHtml=(()=>{
+      if(!beforePhotos.length&&!afterPhotos.length)return'';
+      const thumbs=[...beforePhotos,...afterPhotos].map(p=>{
+        const src=p.fileData&&p.fileData!=='[too-large]'?p.fileData:'';
+        return src
+          ?`<img src="${src}" onclick="viewFile('${p.id}')" class="w-14 h-14 object-cover rounded-lg border-2 cursor-pointer ${p.photoType==='before'?'border-orange-300':'border-green-300'}" title="${p.photoType} photo">`
+          :`<div class="w-14 h-14 rounded-lg border-2 border-gray-200 flex items-center justify-center text-xl bg-gray-50 cursor-pointer" onclick="viewFile('${p.id}')">📷</div>`;
+      }).join('');
+      return`<div class="mt-2">
+        <div class="text-xs font-bold text-gray-400 uppercase mb-1">📸 Audit Photos</div>
+        <div class="flex flex-wrap gap-2">${thumbs}</div>
+      </div>`;
+    })();
+    return`<div class="bg-white rounded-xl shadow-sm border ${r.done?'border-green-300 bg-green-50/30':f.sev==='Significant'?'border-red-200':'border-gray-200'} overflow-hidden">
       <div class="flex gap-3 p-4">
         <div class="flex-shrink-0 pt-0.5">
           <input type="checkbox" class="w-5 h-5 cursor-pointer accent-green-500" ${r.done?'checked':''}
-            onchange="toggleFinding('${f.id}',this.checked)">
+            onclick="event.preventDefault();toggleFinding('${f.id}')">
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex flex-wrap items-center gap-1.5 mb-1">
@@ -1457,19 +1513,11 @@ function renderFindings(){
           <div class="text-xs bg-blue-50 rounded px-3 py-2 mb-2">
             <span class="font-bold text-blue-700">✏️ Action: </span><span class="text-blue-800">${f.action}</span>
           </div>
-          ${r.notes?`<div class="text-xs bg-green-50 rounded px-3 py-2">
+          ${r.notes?`<div class="text-xs bg-green-50 rounded px-3 py-2 mb-2">
             <span class="font-bold text-green-700">📝 Notes: </span><span class="text-green-800">${r.notes}</span>
-            ${r.by?`<span class="text-green-600"> — ${r.by}</span>`:''}
           </div>`:''}
-          ${(()=>{
-            const bp=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='before').length;
-            const ap=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='after').length;
-            if(!bp&&!ap)return'';
-            return`<div class="flex gap-2 mt-1">
-              ${bp?`<span class="text-xs bg-orange-50 text-orange-600 rounded px-2 py-0.5">📸 ${bp} before</span>`:''}
-              ${ap?`<span class="text-xs bg-green-50 text-green-600 rounded px-2 py-0.5">✅ ${ap} after</span>`:''}
-            </div>`;
-          })()}
+          ${photosHtml}
+          ${signoffHtml}
         </div>
         <button onclick="openFindingModal('${f.id}')" class="flex-shrink-0 text-gray-300 hover:text-gray-500 text-xl self-start">✎</button>
       </div>
@@ -1477,10 +1525,8 @@ function renderFindings(){
   }).join('');
 }
 
-function toggleFinding(id,done){
-  if(!resolved[id])resolved[id]={};
-  resolved[id].done=done;resolved[id].resolvedDate=done?new Date().toISOString():null;
-  saveAll();renderFindings();renderDashboard();
+function toggleFinding(id){
+  openFindingModal(id);
 }
 
 let _findingPendingPhotos=[];
@@ -1489,12 +1535,38 @@ function openFindingModal(id){
   _editFindingId=id;
   _findingPendingPhotos=[];
   const f=FINDINGS_DATA.find(x=>x.id===id);
+  const r=resolved[id]||{};
   document.getElementById('fmTitle').textContent=`${f.code} — ${f.desc}`;
   document.getElementById('fmBody').textContent=f.items.map(i=>i.i+' — '+i.d).join('\n');
-  document.getElementById('fmNotes').value=resolved[id]?.notes||'';
-  document.getElementById('fmBy').value=resolved[id]?.by||'';
+  document.getElementById('fmNotes').value=r.notes||'';
+  document.getElementById('fmRgmCheck').checked=r.rgmSigned||false;
+  document.getElementById('fmRgmName').value=r.rgmName||'';
+  document.getElementById('fmAcCheck').checked=r.acSigned||false;
+  document.getElementById('fmAcName').value=r.acName||'';
+  document.getElementById('fmRdoCheck').checked=r.rdoSigned||false;
+  document.getElementById('fmRdoName').value=r.rdoName||'';
+  updateSignoffStatus();
   renderFindingPhotos(id);
   document.getElementById('findingModal').classList.remove('hidden');
+}
+
+function updateSignoffStatus(){
+  const rgm=document.getElementById('fmRgmCheck').checked;
+  const ac=document.getElementById('fmAcCheck').checked;
+  const rdo=document.getElementById('fmRdoCheck').checked;
+  const el=document.getElementById('fmSignoffStatus');
+  const parts=[
+    `RGM ${rgm?'✅':'⬜'}`,
+    `AC ${ac?'✅':'⬜'}`,
+    `RDO ${rdo?'✅':'⬜'}`
+  ];
+  if(rgm&&ac&&rdo){
+    el.textContent='✅ All signed — will be marked Resolved on Save';
+    el.className='text-xs mt-2 rounded-lg px-3 py-2 bg-green-100 text-green-700 font-semibold text-center';
+  } else {
+    el.textContent=parts.join('  ·  ')+' — all 3 required';
+    el.className='text-xs mt-2 rounded-lg px-3 py-2 bg-amber-50 text-amber-700 font-semibold text-center';
+  }
 }
 
 function handleFindingPhoto(input, photoType){
@@ -1548,11 +1620,76 @@ function removeFindingPhoto(id, isPending, type){
 function saveFindingNotes(){
   const id=_editFindingId;if(!id)return;
   if(!resolved[id])resolved[id]={};
+  const rgmSigned=document.getElementById('fmRgmCheck').checked;
+  const acSigned=document.getElementById('fmAcCheck').checked;
+  const rdoSigned=document.getElementById('fmRdoCheck').checked;
+  const allSigned=rgmSigned&&acSigned&&rdoSigned;
   resolved[id].notes=document.getElementById('fmNotes').value;
-  resolved[id].by=document.getElementById('fmBy').value;
+  resolved[id].rgmSigned=rgmSigned;
+  resolved[id].rgmName=document.getElementById('fmRgmName').value;
+  resolved[id].acSigned=acSigned;
+  resolved[id].acName=document.getElementById('fmAcName').value;
+  resolved[id].rdoSigned=rdoSigned;
+  resolved[id].rdoName=document.getElementById('fmRdoName').value;
+  resolved[id].done=allSigned;
+  if(allSigned&&!resolved[id].resolvedDate) resolved[id].resolvedDate=new Date().toISOString();
+  if(!allSigned) resolved[id].resolvedDate=null;
   _findingPendingPhotos.forEach(f=>uploadedFiles.push({...f,_saved:true}));
   _findingPendingPhotos=[];
   saveAll();closeModal('findingModal');renderFindings();renderDashboard();
+}
+
+// ═══════════════════════════════════════════════
+// SEVERITY DRILLDOWN (Dashboard cards)
+// ═══════════════════════════════════════════════
+function openFindingsBySev(sev){
+  const isSig=sev==='Significant';
+  const hdr=document.getElementById('sevModalHdr');
+  hdr.className=`${isSig?'bg-red-700':'bg-amber-600'} text-white px-5 py-4 rounded-t-2xl flex justify-between items-center sticky top-0 z-10`;
+  document.getElementById('sevModalTitle').textContent=isSig?'⚠️ Significant Findings (2)':'Secondary Findings (14)';
+  const list=FINDINGS_DATA.filter(f=>f.sev===sev);
+  document.getElementById('sevModalBody').innerHTML=list.map(f=>{
+    const r=resolved[f.id]||{};
+    const beforePhotos=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='before');
+    const afterPhotos=uploadedFiles.filter(x=>x.findingId===f.id&&x.photoType==='after');
+    const allPhotos=[...beforePhotos,...afterPhotos];
+    const photosHtml=allPhotos.length?`<div class="flex flex-wrap gap-2 mt-2">
+      ${allPhotos.map(p=>{
+        const src=p.fileData&&p.fileData!=='[too-large]'?p.fileData:'';
+        return src
+          ?`<img src="${src}" onclick="viewFile('${p.id}')" class="w-16 h-16 object-cover rounded-lg border-2 cursor-pointer ${p.photoType==='before'?'border-orange-300':'border-green-300'}">`
+          :`<div class="w-16 h-16 rounded-lg border-2 border-gray-200 flex items-center justify-center text-2xl bg-gray-50">📷</div>`;
+      }).join('')}
+    </div>`:'<div class="text-xs text-gray-400 mt-2 italic">No photos uploaded yet — click ✎ in Findings tab to add</div>';
+    return`<div class="border ${r.done?'border-green-300 bg-green-50':'border-gray-200 bg-white'} rounded-xl p-4">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-extrabold text-gray-800">${f.code}</span>
+          ${isSig?`<span class="badge-sig">⚠️ SIGNIFICANT</span>`:`<span class="badge-sec">Secondary</span>`}
+          ${f.repeat?`<span class="badge-rep">🔁 Repeat</span>`:''}
+          ${r.done?`<span class="badge-ok">✓ Resolved</span>`:''}
+        </div>
+        <button onclick="closeModal('sevModal');showTab('findings')" class="text-xs text-blue-500 hover:underline flex-shrink-0">View in Findings →</button>
+      </div>
+      <div class="text-sm font-semibold text-gray-700 mb-2">${f.desc}</div>
+      <div class="space-y-1 mb-2">
+        ${f.items.map(it=>`<div class="text-xs bg-gray-50 rounded px-3 py-1.5">
+          <span class="font-semibold text-gray-700">${it.i}</span><span class="text-gray-500 ml-2">${it.d}</span>
+        </div>`).join('')}
+      </div>
+      <div class="text-xs font-bold text-gray-500 uppercase mt-3 mb-1">📸 Audit Photos</div>
+      ${photosHtml}
+      <div class="text-xs bg-blue-50 rounded px-3 py-2 mt-3">
+        <span class="font-bold text-blue-700">✏️ Action: </span><span class="text-blue-800">${f.action}</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mt-2">
+        <span class="text-xs rounded px-2 py-0.5 font-bold ${r.rgmSigned?'bg-green-100 text-green-700':'bg-gray-100 text-gray-400'}">RGM ${r.rgmSigned?'✅':'⬜'}${r.rgmName?' '+r.rgmName:''}</span>
+        <span class="text-xs rounded px-2 py-0.5 font-bold ${r.acSigned?'bg-green-100 text-green-700':'bg-gray-100 text-gray-400'}">AC ${r.acSigned?'✅':'⬜'}${r.acName?' '+r.acName:''}</span>
+        <span class="text-xs rounded px-2 py-0.5 font-bold ${r.rdoSigned?'bg-green-100 text-green-700':'bg-gray-100 text-gray-400'}">RDO ${r.rdoSigned?'✅':'⬜'}${r.rdoName?' '+r.rdoName:''}</span>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('sevModal').classList.remove('hidden');
 }
 
 // ═══════════════════════════════════════════════
