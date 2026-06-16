@@ -943,6 +943,8 @@ function renderCalendar(){
       const cell=document.createElement('div');
       cell.className=`${cellCls(all)} rounded-lg p-2 cursor-pointer hover:brightness-95 transition-all min-h-[70px] flex flex-col`;
       cell.onclick=()=>openDayView(date);
+      const rgmSch=all.map(e=>e.rgmSchedule).find(s=>s)||'';
+      const dmSch=all.map(e=>e.dmSchedule).find(s=>s)||'';
       cell.innerHTML=`<div class="flex justify-between items-start mb-1">
         <span class="text-xs font-bold text-gray-600">${DAYS[d.getDay()]}</span>
         <span class="text-xs text-gray-400">${d.getDate()}</span>
@@ -951,6 +953,8 @@ function renderCalendar(){
         <span style="width:7px;height:7px;border-radius:50%;background:${dotColor(e.status)};flex-shrink:0;display:inline-block"></span>
         <span class="truncate text-gray-700">${e.person||'—'}</span></div>`).join('')}
       ${all.length>3?`<div onclick="event.stopPropagation();openDayView('${date}')" class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">+${all.length-3} more</div>`:''}
+      ${rgmSch?`<div class="text-xs truncate mt-1" style="color:#374151"><span style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:#9ca3af;letter-spacing:.05em;margin-right:2px">RGM</span>${rgmSch}</div>`:''}
+      ${dmSch?`<div class="text-xs truncate" style="color:#1d4ed8"><span style="font-size:.58rem;font-weight:800;text-transform:uppercase;color:#9ca3af;letter-spacing:.05em;margin-right:2px">DM</span>${dmSch}</div>`:''}
       ${dayFiles.length?`<div class="text-xs text-gray-500 mt-auto flex items-center gap-0.5">📎 ${dayFiles.length}</div>`:''}
       ${!all.length&&!dayFiles.length?`<div class="text-xs text-gray-400 mt-auto">+ add</div>`:''}`;
       cells.appendChild(cell);
