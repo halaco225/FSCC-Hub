@@ -55,7 +55,14 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
         <span class="bg-red-900 text-red-200 text-xs font-semibold px-2 py-0.5 rounded">039376</span>
         <span class="bg-red-800 text-red-300 text-xs px-2 py-0.5 rounded">Cycle 1 · 2026</span>
       </div>
-      <div class="text-red-300 text-xs mt-0.5">8876 Dallas Acworth Hwy · Dallas, GA · MGR: Tina Gunckel</div>
+      <div class="text-red-300 text-xs mt-0.5">8876 Dallas Acworth Hwy · Dallas, GA</div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="auditPdfClick()" id="auditPdfBtn"
+        class="flex items-center gap-1.5 bg-red-800 hover:bg-red-900 text-white text-xs font-bold px-3 py-2 rounded-lg border border-red-600 transition-colors">
+        <span>📄</span><span id="auditPdfLabel">Audit PDF</span>
+      </button>
+      <input id="auditPdfInput" type="file" accept=".pdf" class="hidden" onchange="uploadAuditPdf(this)">
     </div>
     <div class="flex gap-2 text-center text-xs">
       <div class="bg-red-900 rounded-lg px-3 py-1.5">
@@ -1690,6 +1697,55 @@ function saveFindingNotes(){
 }
 
 // ═══════════════════════════════════════════════
+// AUDIT PDF
+// ═══════════════════════════════════════════════
+function auditPdfClick(){
+  const existing=uploadedFiles.find(f=>f.isAuditPdf);
+  if(existing){
+    // View it
+    document.getElementById('fvTitle').textContent=existing.fileName;
+    const body=document.getElementById('fvBody');
+    if(existing.fileData&&existing.fileData!=='[too-large]'){
+      body.innerHTML=`<embed src="${existing.fileData}" type="application/pdf" width="100%" style="height:80vh">`;
+    } else {
+      body.innerHTML=`<div class="text-center py-12 text-gray-400"><div class="text-5xl mb-3">📄</div><div class="font-semibold">${existing.fileName}</div><div class="text-sm mt-2">File too large to preview inline.</div></div>`;
+    }
+    document.getElementById('fileViewerModal').classList.remove('hidden');
+  } else {
+    document.getElementById('auditPdfInput').click();
+  }
+}
+
+function uploadAuditPdf(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    // Remove any previous audit PDF
+    uploadedFiles=uploadedFiles.filter(f=>!f.isAuditPdf);
+    uploadedFiles.push({
+      id:uid(), fileName:file.name, ext:'pdf', size:file.size,
+      category:'SafetyCulture Audit', desc:'Jun 14 2026 FSCC Audit Report',
+      uploadedBy:'', date:'2026-06-14', isAuditPdf:true,
+      fileData:file.size<8*1024*1024?e.target.result:'[too-large]',
+      tooLarge:file.size>=8*1024*1024,
+      createdAt:new Date().toISOString(), entryId:null
+    });
+    saveAll();
+    document.getElementById('auditPdfLabel').textContent='View Audit';
+    input.value='';
+    // Auto-open it
+    auditPdfClick();
+  };
+  reader.readAsDataURL(file);
+}
+
+function initAuditPdfBtn(){
+  if(uploadedFiles.find(f=>f.isAuditPdf)){
+    document.getElementById('auditPdfLabel').textContent='View Audit';
+  }
+}
+
+// ═══════════════════════════════════════════════
 // SEVERITY DRILLDOWN (Dashboard cards)
 // ═══════════════════════════════════════════════
 function openFindingsBySev(sev){
@@ -1768,6 +1824,7 @@ if(daysToWindow>0&&daysToWindow<=60){
 
 // Show app immediately from localStorage, then sync Supabase in background
 showTab('dashboard');
+initAuditPdfBtn();
 if(_supabaseReady) loadFromSupabase();
 </script>
 </body>
