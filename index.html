@@ -275,6 +275,30 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
   </div>
 </div>
 
+<!-- Schedule Edit Modal -->
+<div id="schedModal" class="overlay hidden" onclick="if(event.target===this)closeModal('schedModal')">
+  <div class="modal shadow-2xl" style="max-width:22rem">
+    <div class="bg-indigo-700 text-white px-5 py-4 rounded-t-2xl flex justify-between items-center">
+      <div><div class="text-xs text-indigo-300 mb-0.5" id="schedModalDate"></div><div class="font-bold">Daily Schedule</div></div>
+      <button onclick="closeModal('schedModal')" class="text-indigo-200 hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <div>
+        <label class="label">🧑‍💼 RGM Schedule</label>
+        <input id="schedRgm" type="text" placeholder="e.g. 8am–4pm" class="field">
+      </div>
+      <div>
+        <label class="label">📋 DM Schedule</label>
+        <input id="schedDm" type="text" placeholder="e.g. Visit 2pm" class="field">
+      </div>
+    </div>
+    <div class="px-5 pb-5 flex gap-2">
+      <button onclick="saveSchedule()" class="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-xl">Save</button>
+      <button onclick="closeModal('schedModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Entry Modal -->
 <div id="entryModal" class="overlay hidden" onclick="if(event.target===this)closeModal('entryModal')">
   <div class="modal shadow-2xl">
@@ -306,10 +330,6 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
           </select></div>
       </div>
       <div id="emBadge" class="hidden text-xs font-bold text-center rounded-lg py-1.5"></div>
-      <div class="grid grid-cols-2 gap-3">
-        <div><label class="label">RGM Schedule</label><input id="emRgm" type="text" placeholder="e.g. 8am–4pm" class="field"></div>
-        <div><label class="label">DM Schedule</label><input id="emDm" type="text" placeholder="e.g. Visit 2pm" class="field"></div>
-      </div>
       <div><label class="label">Tasks Completed / Notes</label>
         <textarea id="emTask" rows="3" placeholder="What was done, completed, or needs attention today…" class="field resize-none"></textarea></div>
       <div><label class="label">Audit / Finding Reference</label>
@@ -664,6 +684,7 @@ let clLog=ls('clLog',{});
 let tempLogs=ls('tempLogs',[]);
 let pestWalks=ls('pestWalks',[]);
 let uploadedFiles=ls('uploadedFiles',[]);
+let daySchedules=ls('daySchedules',{});
 
 let _pendingUploads=[];
 let _editFindingId=null;
@@ -678,6 +699,7 @@ function saveAll(){
   lsSave('tempLogs',tempLogs);
   lsSave('pestWalks',pestWalks);
   lsSave('uploadedFiles',uploadedFiles.map(f=>({...f})));
+  lsSave('daySchedules',daySchedules);
   if(_supabaseReady) _syncToSupabase();
 }
 
@@ -943,16 +965,25 @@ function renderCalendar(){
       const cell=document.createElement('div');
       cell.className=`${cellCls(all)} rounded-lg p-2 cursor-pointer hover:brightness-95 transition-all min-h-[70px] flex flex-col`;
       cell.onclick=()=>openDayView(date);
+      const sched=daySchedules[date]||{};
+      const rgm=sched.rgm||(()=>{const e=entries.find(x=>x.date===date&&x.rgmSchedule);return e?.rgmSchedule||'';})();
+      const dm=sched.dm||(()=>{const e=entries.find(x=>x.date===date&&x.dmSchedule);return e?.dmSchedule||'';})();
       cell.innerHTML=`<div class="flex justify-between items-start mb-1">
         <span class="text-xs font-bold text-gray-600">${DAYS[d.getDay()]}</span>
         <span class="text-xs text-gray-400">${d.getDate()}</span>
       </div>
-      ${vis.slice(0,3).map(e=>`<div onclick="event.stopPropagation();openEntryModal('${e.date}','${e.id}')" class="text-xs truncate flex items-center gap-1 mb-0.5 rounded hover:bg-black/10 px-0.5 cursor-pointer">
+      <div onclick="event.stopPropagation();openSchedModal('${date}')" class="mb-1.5 cursor-pointer hover:bg-indigo-50 rounded px-0.5 -mx-0.5">
+        ${rgm?`<div class="text-xs text-indigo-700 font-semibold truncate">👤 ${rgm}</div>`:'<div class="text-xs text-indigo-300 italic">RGM —</div>'}
+        ${dm?`<div class="text-xs text-purple-600 font-semibold truncate">📋 ${dm}</div>`:'<div class="text-xs text-purple-300 italic">DM —</div>'}
+      </div>
+      <div class="border-t border-gray-100 pt-1">
+      ${vis.slice(0,2).map(e=>`<div onclick="event.stopPropagation();openEntryModal('${e.date}','${e.id}')" class="text-xs truncate flex items-center gap-1 mb-0.5 rounded hover:bg-black/10 px-0.5 cursor-pointer">
         <span style="width:7px;height:7px;border-radius:50%;background:${dotColor(e.status)};flex-shrink:0;display:inline-block"></span>
         <span class="truncate text-gray-700">${e.person||'—'}</span></div>`).join('')}
-      ${all.length>3?`<div onclick="event.stopPropagation();openDayView('${date}')" class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">+${all.length-3} more</div>`:''}
+      ${all.length>2?`<div onclick="event.stopPropagation();openDayView('${date}')" class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">+${all.length-2} more</div>`:''}
       ${dayFiles.length?`<div class="text-xs text-gray-500 mt-auto flex items-center gap-0.5">📎 ${dayFiles.length}</div>`:''}
-      ${!all.length&&!dayFiles.length?`<div class="text-xs text-gray-400 mt-auto">+ add</div>`:''}`;
+      ${!all.length&&!dayFiles.length?`<div class="text-xs text-gray-400 mt-1">+ add</div>`:''}
+      </div>`;
       cells.appendChild(cell);
     });
     wrap.appendChild(cells);
@@ -1042,11 +1073,32 @@ function loadEntryInModal(id){
 }
 
 function clearEntryForm(){
-  ['emId','emDate','emRgm','emDm','emTask','emAudit','emNotes'].forEach(i=>document.getElementById(i).value='');
+  ['emId','emDate','emTask','emAudit','emNotes'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('emPerson').value='';
   document.getElementById('emStatus').value='';
   document.getElementById('emBadge').classList.add('hidden');
   _entryPendingFiles=[];
+}
+
+function openSchedModal(date){
+  const sched=daySchedules[date]||{};
+  document.getElementById('schedModalDate').textContent=fmtDate(date)+' — '+date;
+  document.getElementById('schedRgm').value=sched.rgm||'';
+  document.getElementById('schedDm').value=sched.dm||'';
+  document.getElementById('schedModal').setAttribute('data-date',date);
+  document.getElementById('schedModal').classList.remove('hidden');
+}
+
+function saveSchedule(){
+  const date=document.getElementById('schedModal').getAttribute('data-date');
+  if(!date)return;
+  daySchedules[date]={
+    rgm:document.getElementById('schedRgm').value.trim(),
+    dm:document.getElementById('schedDm').value.trim()
+  };
+  saveAll();
+  closeModal('schedModal');
+  renderCalendar();
 }
 
 function updateEmBadge(){
@@ -1064,8 +1116,6 @@ function saveEntry(){
   const status=document.getElementById('emStatus').value;
   // No required fields — just need at least a date
   const data={date:date||new Date().toISOString().slice(0,10),person,status,
-    rgmSchedule:document.getElementById('emRgm').value,
-    dmSchedule:document.getElementById('emDm').value,
     tasks:document.getElementById('emTask').value,
     auditDesc:document.getElementById('emAudit').value,
     notes:document.getElementById('emNotes').value,
