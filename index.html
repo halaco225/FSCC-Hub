@@ -282,6 +282,17 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
   </div>
 </div>
 
+<!-- Week Recap Modal -->
+<div id="weekRecapModal" class="overlay hidden" onclick="if(event.target===this)closeModal('weekRecapModal')">
+  <div class="modal shadow-2xl" style="max-width:36rem">
+    <div class="bg-gray-800 text-white px-5 py-4 rounded-t-2xl flex justify-between items-center sticky top-0 z-10">
+      <div><div class="text-xs text-gray-400 mb-0.5" id="wrSubtitle"></div><div class="font-bold text-lg" id="wrTitle">Weekly Recap</div></div>
+      <button onclick="closeModal('weekRecapModal')" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div id="wrBody" class="px-5 py-4 space-y-4 overflow-y-auto" style="max-height:78vh"></div>
+  </div>
+</div>
+
 <!-- Schedule Edit Modal -->
 <div id="schedModal" class="overlay hidden" onclick="if(event.target===this)closeModal('schedModal')">
   <div class="modal shadow-2xl" style="max-width:22rem">
@@ -959,7 +970,7 @@ function renderCalendar(){
     wrap.className=`rounded-xl shadow-sm overflow-hidden border ${week.window?'border-amber-400 window-week':'border-gray-200 bg-white'}`;
     const hdr=document.createElement('div');
     hdr.className=week.window?'window-hdr px-4 py-2 text-sm font-bold flex items-center justify-between':'bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-600 flex items-center justify-between';
-    hdr.innerHTML=`<span>${week.label}</span><span class="${week.window?'text-amber-200':'text-gray-400'} font-normal text-xs">${week.start.slice(5)} – ${week.end.slice(5)}</span>`;
+    hdr.innerHTML=`<span>${week.label}</span><div class="flex items-center gap-3"><span class="${week.window?'text-amber-200':'text-gray-400'} font-normal text-xs">${week.start.slice(5)} – ${week.end.slice(5)}</span><button onclick="event.stopPropagation();openWeekRecap('${week.start}','${week.end}','${week.label.replace(/'/g,'')}')" class="text-xs font-bold px-2 py-0.5 rounded ${week.window?'bg-amber-500 text-white hover:bg-amber-400':'bg-white text-gray-600 hover:bg-gray-200 border border-gray-300'}">📊 Recap</button></div>`;
     wrap.appendChild(hdr);
     const cells=document.createElement('div');
     cells.className='grid gap-2 p-3';
@@ -984,12 +995,16 @@ function renderCalendar(){
         ${dm?`<div class="text-xs text-purple-600 font-semibold truncate">📋 ${dm}</div>`:'<div class="text-xs text-purple-300 italic">DM —</div>'}
       </div>
       <div class="border-t border-gray-100 pt-1">
-      ${vis.slice(0,2).map(e=>`<div onclick="event.stopPropagation();openEntryModal('${e.date}','${e.id}')" class="text-xs truncate flex items-center gap-1 mb-0.5 rounded hover:bg-black/10 px-0.5 cursor-pointer">
-        <span style="width:7px;height:7px;border-radius:50%;background:${dotColor(e.status)};flex-shrink:0;display:inline-block"></span>
-        <span class="truncate text-gray-700">${e.person||'—'}</span></div>`).join('')}
-      ${all.length>2?`<div onclick="event.stopPropagation();openDayView('${date}')" class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">+${all.length-2} more</div>`:''}
-      ${dayFiles.length?`<div class="text-xs text-gray-500 mt-auto flex items-center gap-0.5">📎 ${dayFiles.length}</div>`:''}
-      ${!all.length&&!dayFiles.length?`<div class="text-xs text-gray-400 mt-1">+ add</div>`:''}
+      ${vis.slice(0,2).map(e=>`<div onclick="event.stopPropagation();openEntryModal('${e.date}','${e.id}')" class="mb-1 rounded-md px-1.5 py-1 cursor-pointer hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 transition-all">
+        <div class="flex items-center gap-1.5">
+          <span style="width:8px;height:8px;border-radius:50%;background:${dotColor(e.status)};flex-shrink:0;display:inline-block"></span>
+          <span class="text-xs font-semibold text-gray-700 truncate">${e.person||'—'}</span>
+        </div>
+        ${e.tasks?`<div class="text-xs text-gray-400 truncate mt-0.5 pl-3.5">${e.tasks}</div>`:''}
+      </div>`).join('')}
+      ${all.length>2?`<div onclick="event.stopPropagation();openDayView('${date}')" class="text-xs text-blue-500 cursor-pointer hover:underline pl-1">+${all.length-2} more…</div>`:''}
+      ${dayFiles.length?`<div class="text-xs text-gray-400 mt-1 flex items-center gap-0.5">📎 ${dayFiles.length}</div>`:''}
+      ${!all.length?`<div onclick="event.stopPropagation();openEntryModal('${date}',null)" class="mt-1 text-xs text-gray-400 hover:text-red-500 cursor-pointer flex items-center gap-1 font-semibold"><span>＋</span><span>New Task</span></div>`:''}
       </div>`;
       cells.appendChild(cell);
     });
@@ -1694,6 +1709,108 @@ function saveFindingNotes(){
   _findingPendingPhotos.forEach(f=>uploadedFiles.push({...f,_saved:true}));
   _findingPendingPhotos=[];
   saveAll();closeModal('findingModal');renderFindings();renderDashboard();
+}
+
+// ═══════════════════════════════════════════════
+// WEEK RECAP
+// ═══════════════════════════════════════════════
+function openWeekRecap(start, end, label){
+  document.getElementById('wrTitle').textContent = label + ' Recap';
+  document.getElementById('wrSubtitle').textContent = start + ' – ' + end;
+
+  // Gather all entries in this date range
+  const weekEntries = entries.filter(e => e.date >= start && e.date <= end);
+  const weekDates = [];
+  for(let d=new Date(start+'T12:00:00'); d<=new Date(end+'T12:00:00'); d.setDate(d.getDate()+1))
+    weekDates.push(d.toISOString().slice(0,10));
+
+  const total = weekEntries.length;
+  const done  = weekEntries.filter(e=>e.status==='Complete').length;
+  const inProg= weekEntries.filter(e=>e.status==='In Progress').length;
+  const notDone=weekEntries.filter(e=>e.status==='Not Completed').length;
+  const pct   = total ? Math.round(done/total*100) : 0;
+
+  // Group by person
+  const byPerson = {};
+  weekEntries.forEach(e=>{
+    const p = e.person||'Unassigned';
+    if(!byPerson[p]) byPerson[p]=[];
+    byPerson[p].push(e);
+  });
+
+  const statusBadge = s => ({
+    'Complete':      '<span class="text-xs bg-green-100 text-green-700 font-bold px-1.5 py-0.5 rounded">✅ Complete</span>',
+    'In Progress':   '<span class="text-xs bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded">🟡 In Progress</span>',
+    'Not Completed': '<span class="text-xs bg-red-100 text-red-700 font-bold px-1.5 py-0.5 rounded">🔴 Not Completed</span>',
+    'Assigned':      '<span class="text-xs bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded">🔵 Assigned</span>',
+  }[s] || `<span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">${s||'—'}</span>`);
+
+  let html = '';
+
+  // Summary bar
+  html += `<div class="bg-gray-50 rounded-xl p-4">
+    <div class="flex justify-between text-sm font-semibold text-gray-700 mb-2">
+      <span>Week Completion</span><span>${done}/${total} tasks complete — ${pct}%</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-3 mb-3 overflow-hidden">
+      <div class="bg-green-500 h-3 rounded-full transition-all" style="width:${pct}%"></div>
+    </div>
+    <div class="flex gap-3 text-xs flex-wrap">
+      <span class="text-green-600 font-semibold">✅ ${done} Complete</span>
+      <span class="text-amber-600 font-semibold">🟡 ${inProg} In Progress</span>
+      <span class="text-red-600 font-semibold">🔴 ${notDone} Not Completed</span>
+    </div>
+  </div>`;
+
+  // By person
+  if(Object.keys(byPerson).length){
+    html += `<div class="font-bold text-gray-700 text-sm">By Team Member</div>`;
+    Object.entries(byPerson).forEach(([person, pEntries])=>{
+      const pd = pEntries.filter(e=>e.status==='Complete').length;
+      html += `<div class="border border-gray-200 rounded-xl overflow-hidden">
+        <div class="bg-gray-50 px-4 py-2 flex justify-between items-center">
+          <span class="font-semibold text-gray-800">${person}</span>
+          <span class="text-xs text-gray-500">${pd}/${pEntries.length} complete</span>
+        </div>
+        <div class="divide-y divide-gray-50">
+          ${pEntries.map(e=>`<div class="px-4 py-2.5 cursor-pointer hover:bg-gray-50" onclick="closeModal('weekRecapModal');openEntryModal('${e.date}','${e.id}')">
+            <div class="flex justify-between items-start gap-2">
+              <div class="text-xs font-semibold text-gray-600">${fmtDate(e.date)}</div>
+              ${statusBadge(e.status)}
+            </div>
+            ${e.tasks?`<div class="text-sm text-gray-700 mt-1">${e.tasks}</div>`:''}
+            ${e.auditDesc?`<div class="text-xs text-blue-600 mt-0.5">📋 ${e.auditDesc}</div>`:''}
+            ${e.notes?`<div class="text-xs text-gray-400 mt-0.5">${e.notes}</div>`:''}
+          </div>`).join('')}
+        </div>
+      </div>`;
+    });
+  } else {
+    html += `<div class="text-center py-8 text-gray-400">
+      <div class="text-3xl mb-2">📭</div>
+      <div class="font-semibold">No tasks logged this week yet</div>
+      <div class="text-sm mt-1">Tap any day on the calendar to add entries</div>
+    </div>`;
+  }
+
+  // Daily schedules for the week
+  const schedDays = weekDates.filter(d=>daySchedules[d]?.rgm||daySchedules[d]?.dm);
+  if(schedDays.length){
+    html += `<div class="font-bold text-gray-700 text-sm">Schedules This Week</div>
+    <div class="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+      ${schedDays.map(d=>{
+        const s=daySchedules[d];
+        return`<div class="px-4 py-2 flex gap-4 text-sm">
+          <span class="text-gray-500 w-24 flex-shrink-0">${fmtDate(d)}</span>
+          ${s.rgm?`<span class="text-indigo-700">👤 ${s.rgm}</span>`:''}
+          ${s.dm?`<span class="text-purple-600">📋 ${s.dm}</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  document.getElementById('wrBody').innerHTML = html;
+  document.getElementById('weekRecapModal').classList.remove('hidden');
 }
 
 // ═══════════════════════════════════════════════
