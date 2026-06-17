@@ -1808,7 +1808,7 @@ function openEntryDetail(id){
   }
 
   document.getElementById('edBody').innerHTML=html;
-  document.getElementById('edEditBtn').onclick=()=>{closeModal('entryDetailModal');openEntryModal(e.date,e.id);};
+  document.getElementById('edEditBtn').onclick=()=>{closeModal('entryDetailModal');openDayView(e.date);};
   document.getElementById('entryDetailModal').setAttribute('data-entry-id', e.id);
   document.getElementById('entryDetailModal').classList.remove('hidden');
 }
