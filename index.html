@@ -980,7 +980,12 @@ async function loadFromSupabase(){
           if(d) f.fileData=d;
         }
       }));
-      lsSave('uploadedFiles',uploadedFiles.map(f=>{const{fileData,...meta}=f;return meta;}));
+      // Save any fileData to IDB before stripping from localStorage
+      await Promise.all(uploadedFiles.map(f=>{
+        if(f.fileData&&f.fileData!=='[too-large]') return _idb.put(f.id,f.fileData).catch(()=>{});
+        return Promise.resolve();
+      }));
+      lsSave('uploadedFiles',uploadedFiles.map(({fileData,...meta})=>meta));
     }
     // Re-render active tab with fresh data
     const activeNav=document.querySelector('.tab-active');
@@ -2256,10 +2261,31 @@ if(daysToWindow>0&&daysToWindow<=60){
   document.getElementById('countdownDays').textContent=daysToWindow;
 }
 
+// ── Migrate fileData from old localStorage format → IndexedDB ──
+async function _migrateFilesToIdb(){
+  // Read raw localStorage directly to get old fileData before anything strips it
+  let raw;
+  try{ raw=JSON.parse(localStorage.getItem('fscc_uploadedFiles')||'[]'); }catch{ return; }
+  const withData=raw.filter(f=>f.fileData&&f.fileData!=='[too-large]'&&f.id);
+  if(!withData.length) return;
+  await Promise.all(withData.map(f=>_idb.put(f.id,f.fileData).catch(()=>{})));
+  // Update in-memory array so current session can view files
+  withData.forEach(f=>{
+    const mem=uploadedFiles.find(x=>x.id===f.id);
+    if(mem&&!mem.fileData) mem.fileData=f.fileData;
+    else if(!mem) uploadedFiles.push(f);
+  });
+  // Now save stripped version back so localStorage doesn't fill up
+  lsSave('uploadedFiles',uploadedFiles.map(({fileData,...meta})=>meta));
+  console.log(`Migrated ${withData.length} file(s) from localStorage → IndexedDB`);
+}
+
 // Show app immediately from localStorage, then sync Supabase in background
 showTab('dashboard');
 initAuditPdfBtn();
-if(_supabaseReady) loadFromSupabase();
+_migrateFilesToIdb().then(()=>{
+  if(_supabaseReady) loadFromSupabase();
+});
 </script>
 </body>
 </html>
