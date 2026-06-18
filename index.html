@@ -757,7 +757,64 @@ async function _sbUpsert(table, rows){
 }
 
 function ls(k,d){try{return JSON.parse(localStorage.getItem('fscc_'+k))??d;}catch{return d;}}
-function lsSave(k,v){localStorage.setItem('fscc_'+k,JSON.stringify(v));}
+function lsSave(k,v){
+  try{localStorage.setItem('fscc_'+k,JSON.stringify(v));}
+  catch(e){
+    if(e.name==='QuotaExceededError'||e.code===22||e.code===1014){
+      _showSyncBanner('⚠️ Browser storage is full — some data may not be saved locally. Delete old photos/files to free space.','red');
+    }
+  }
+}
+
+// ── IndexedDB for file binary data (no size limit) ───────
+const _idb={
+  _db:null,
+  async open(){
+    if(this._db)return this._db;
+    return new Promise((res,rej)=>{
+      const r=indexedDB.open('fscc_files',1);
+      r.onupgradeneeded=e=>e.target.result.createObjectStore('files',{keyPath:'id'});
+      r.onsuccess=e=>{this._db=e.target.result;res(this._db);};
+      r.onerror=e=>rej(e);
+    });
+  },
+  async put(id,data){
+    const db=await this.open();
+    return new Promise((res,rej)=>{
+      const tx=db.transaction('files','readwrite');
+      tx.objectStore('files').put({id,data});
+      tx.oncomplete=res; tx.onerror=rej;
+    });
+  },
+  async get(id){
+    const db=await this.open();
+    return new Promise((res,rej)=>{
+      const tx=db.transaction('files','readonly');
+      const req=tx.objectStore('files').get(id);
+      req.onsuccess=()=>res(req.result?.data);
+      req.onerror=rej;
+    });
+  },
+  async del(id){
+    const db=await this.open();
+    return new Promise((res,rej)=>{
+      const tx=db.transaction('files','readwrite');
+      tx.objectStore('files').delete(id);
+      tx.oncomplete=res; tx.onerror=rej;
+    });
+  }
+};
+
+function _showSyncBanner(msg,color='red'){
+  const b=document.getElementById('localBanner');
+  if(!b)return;
+  b.textContent=msg;
+  b.className=color==='red'
+    ?'bg-red-50 border-b border-red-300 text-red-700 text-xs text-center py-1.5 px-4'
+    :color==='green'
+    ?'bg-green-50 border-b border-green-200 text-green-700 text-xs text-center py-1.5 px-4'
+    :'bg-yellow-50 border-b border-yellow-300 text-yellow-700 text-xs text-center py-1.5 px-4';
+}
 
 let entries=ls('entries',[]);
 let resolved=ls('resolved',{});
@@ -779,19 +836,24 @@ function saveAll(){
   lsSave('clLog',clLog);
   lsSave('tempLogs',tempLogs);
   lsSave('pestWalks',pestWalks);
-  lsSave('uploadedFiles',uploadedFiles.map(f=>({...f})));
+  // Strip fileData before localStorage (photos go to IndexedDB instead)
+  lsSave('uploadedFiles',uploadedFiles.map(f=>{const{fileData,...meta}=f;return meta;}));
+  uploadedFiles.forEach(f=>{if(f.fileData&&f.fileData!=='[too-large]')_idb.put(f.id,f.fileData);});
   lsSave('daySchedules',daySchedules);
   if(_supabaseReady) _syncToSupabase();
 }
 
 async function _syncToSupabase(){
+  let anyErr=false;
+  // entries — no rgm_schedule/dm_schedule (columns removed from DB)
   try{
     await _sbUpsert('entries', entries.map(e=>({
       id:e.id, date:e.date, person:e.person||null, status:e.status||null,
-      rgm_schedule:e.rgmSchedule||null, dm_schedule:e.dmSchedule||null,
       tasks:e.tasks||null, audit_desc:e.auditDesc||null, notes:e.notes||null,
       updated_at:e.updatedAt||new Date().toISOString()
     })));
+  }catch(err){console.warn('Supabase entries sync error:',err);anyErr=true;}
+  try{
     const resRows=Object.entries(resolved).map(([finding_id,v])=>({
       finding_id, done:v.done||false, notes:v.notes||null,
       resolved_by:v.rgmName||v.by||null, resolved_date:v.resolvedDate||null,
@@ -800,30 +862,43 @@ async function _syncToSupabase(){
       rdo_signed:v.rdoSigned||false, rdo_name:v.rdoName||null,
       updated_at:new Date().toISOString()
     }));
-    await _sbUpsert('finding_resolutions', resRows);
+    if(resRows.length) await _sbUpsert('finding_resolutions', resRows);
+  }catch(err){console.warn('Supabase resolutions sync error:',err);anyErr=true;}
+  try{
     const clRows=[];
     Object.entries(clLog).forEach(([date,items])=>{
       Object.entries(items).forEach(([item_id,v])=>{
         clRows.push({date,item_id,done:v.done||false,value:v.value||null,logged_time:v.time||null});
       });
     });
-    await _sbUpsert('checklist_logs', clRows);
-    await _sbUpsert('temp_logs', tempLogs.map(t=>({
+    if(clRows.length) await _sbUpsert('checklist_logs', clRows);
+  }catch(err){console.warn('Supabase checklist sync error:',err);anyErr=true;}
+  try{
+    if(tempLogs.length) await _sbUpsert('temp_logs', tempLogs.map(t=>({
       id:t.id,date:t.date,time:t.time,equipment:t.equipment,
       temp:t.temp,logged_by:t.by||null,notes:t.notes||null
     })));
-    await _sbUpsert('pest_walks', pestWalks.map(p=>({
+  }catch(err){console.warn('Supabase temp_logs sync error:',err);anyErr=true;}
+  try{
+    if(pestWalks.length) await _sbUpsert('pest_walks', pestWalks.map(p=>({
       id:p.id,date:p.date,week_of:p.weekOf||null,
       completed_by:p.by||null,vendor:p.vendor||null,
       result:p.result||null,notes:p.notes||null
     })));
-    await _sbUpsert('uploaded_files', uploadedFiles.map(f=>({
+  }catch(err){console.warn('Supabase pest_walks sync error:',err);anyErr=true;}
+  try{
+    if(uploadedFiles.length) await _sbUpsert('uploaded_files', uploadedFiles.map(f=>({
       id:f.id,file_name:f.fileName,ext:f.ext,size:f.size||null,
       category:f.category||null,description:f.desc||null,
       uploaded_by:f.uploadedBy||null,date:f.date||null,
       entry_id:f.entryId||null,storage_path:null
     })));
-  }catch(err){console.warn('Supabase sync error:',err);}
+  }catch(err){console.warn('Supabase files sync error:',err);anyErr=true;}
+  if(anyErr){
+    _showSyncBanner('⚠️ Some data failed to sync to cloud — your local data is still saved. Check console for details.','yellow');
+  } else {
+    _showSyncBanner('✅ Synced — data saved to cloud and shared across all devices.','green');
+  }
 }
 
 // ── Load from Supabase on startup ────────────────────────
@@ -838,12 +913,23 @@ async function loadFromSupabase(){
       _sbSelect('uploaded_files','created_at')
     ]);
     if(eData?.length){
-      entries=eData.map(r=>({
-        id:r.id, date:r.date, person:r.person||'', status:r.status||'',
-        rgmSchedule:r.rgm_schedule||'', dmSchedule:r.dm_schedule||'',
-        tasks:r.tasks||'', auditDesc:r.audit_desc||'',
-        notes:r.notes||'', updatedAt:r.updated_at
-      }));
+      // Merge: keep whichever version (local or Supabase) is newer
+      const localById=Object.fromEntries(entries.map(e=>[e.id,e]));
+      const merged=eData.map(r=>{
+        const local=localById[r.id];
+        const sbTime=new Date(r.updated_at||0).getTime();
+        const localTime=new Date(local?.updatedAt||0).getTime();
+        if(local&&localTime>sbTime) return local; // local is newer, keep it
+        return{
+          id:r.id, date:r.date, person:r.person||'', status:r.status||'',
+          tasks:r.tasks||'', auditDesc:r.audit_desc||'',
+          notes:r.notes||'', updatedAt:r.updated_at
+        };
+      });
+      // Also keep any local entries not yet in Supabase
+      const sbIds=new Set(eData.map(r=>r.id));
+      entries.forEach(e=>{ if(!sbIds.has(e.id)) merged.push(e); });
+      entries=merged;
       lsSave('entries',entries);
     }
     if(rData?.length){
@@ -887,7 +973,14 @@ async function loadFromSupabase(){
         uploadedBy:r.uploaded_by||'', date:r.date||'',
         entryId:r.entry_id||null
       }));
-      lsSave('uploadedFiles',uploadedFiles);
+      // Re-hydrate fileData from IndexedDB
+      await Promise.all(uploadedFiles.map(async f=>{
+        if(!f.fileData||f.fileData==='[too-large]'){
+          const d=await _idb.get(f.id).catch(()=>null);
+          if(d) f.fileData=d;
+        }
+      }));
+      lsSave('uploadedFiles',uploadedFiles.map(f=>{const{fileData,...meta}=f;return meta;}));
     }
     // Re-render active tab with fresh data
     const activeNav=document.querySelector('.tab-active');
@@ -897,11 +990,11 @@ async function loadFromSupabase(){
     // Poll every 60s so teammates' changes show up
     setTimeout(()=>{ if(_supabaseReady) loadFromSupabase(); }, 60000);
 
-    document.getElementById('localBanner').textContent='✅ Synced with Supabase — data shared across all devices in real time.';
-    document.getElementById('localBanner').className='bg-green-50 border-b border-green-200 text-green-700 text-xs text-center py-1.5 px-4';
+    _showSyncBanner('✅ Synced — data saved to cloud and shared across all devices.','green');
   }catch(err){
     console.warn('Supabase load error:',err);
-    showTab('dashboard'); // fall back to localStorage data
+    _showSyncBanner('⚠️ Could not load from cloud — showing local data.','yellow');
+    showTab('dashboard');
   }
 }
 
@@ -1576,29 +1669,40 @@ function renderFiles(){
     </div>`).join('');
 }
 
-function viewFile(id){
+async function viewFile(id){
   const f=uploadedFiles.find(x=>x.id===id);if(!f)return;
   document.getElementById('fvTitle').textContent=f.fileName;
   const body=document.getElementById('fvBody');
+  body.innerHTML=`<div class="text-center py-12 text-gray-400">Loading…</div>`;
+  document.getElementById('fileViewerModal').classList.remove('hidden');
+  // Get fileData from memory or IndexedDB
+  let src=f.fileData&&f.fileData!=='[too-large]'?f.fileData:await _idb.get(id).catch(()=>null);
+  if(src) f.fileData=src; // cache back into memory
+  if(!src){
+    body.innerHTML=`<div class="text-center text-gray-400 py-12 text-4xl">📎<br><div class="text-base mt-2">${f.fileName}<br><span class="text-sm">File data not available — may have been uploaded on another device.</span></div></div>`;
+    return;
+  }
   if(['jpg','jpeg','png','gif','webp'].includes(f.ext)){
-    body.innerHTML=`<img src="${f.fileData}" style="max-width:100%;max-height:75vh;object-fit:contain;display:block;margin:auto">`;
+    body.innerHTML=`<img src="${src}" style="max-width:100%;max-height:75vh;object-fit:contain;display:block;margin:auto">`;
   } else if(f.ext==='pdf'){
-    body.innerHTML=`<embed src="${f.fileData}" type="application/pdf" width="100%" style="height:75vh">`;
+    body.innerHTML=`<embed src="${src}" type="application/pdf" width="100%" style="height:75vh">`;
   } else {
     body.innerHTML=`<div class="text-center text-gray-400 py-12 text-4xl">📎<br><div class="text-base mt-2">${f.fileName}</div></div>`;
   }
-  document.getElementById('fileViewerModal').classList.remove('hidden');
 }
 
-function downloadFile(id){
-  const f=uploadedFiles.find(x=>x.id===id);if(!f||!f.fileData)return;
+async function downloadFile(id){
+  const f=uploadedFiles.find(x=>x.id===id);if(!f)return;
+  let src=f.fileData&&f.fileData!=='[too-large]'?f.fileData:await _idb.get(id).catch(()=>null);
+  if(!src)return;
   const a=document.createElement('a');
-  a.href=f.fileData;a.download=f.fileName;a.click();
+  a.href=src;a.download=f.fileName;a.click();
 }
 
 function deleteFile(id){
   if(!confirm('Remove this file?'))return;
   uploadedFiles=uploadedFiles.filter(f=>f.id!==id);
+  _idb.del(id).catch(()=>{});
   saveAll();renderFiles();renderCalendar();
 }
 
