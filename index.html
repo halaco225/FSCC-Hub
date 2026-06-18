@@ -40,6 +40,30 @@ const SUPABASE_URL = 'https://ypksqgfkngdgfmcvmexs.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwa3NxZ2ZrbmdkZ2ZtY3ZtZXhzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTQ4MjgwMSwiZXhwIjoyMDk3MDU4ODAxfQ.gTrpbDq785K5xxVXNavnUapy67swg4xuiyTXHbfdUBE';
 </script>
 
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="loginScreen" class="fixed inset-0 bg-red-700 z-[200] flex flex-col items-center justify-center px-6">
+  <div class="text-white text-center mb-8">
+    <div class="text-4xl mb-2">🍕</div>
+    <div class="text-2xl font-extrabold">FSCC Hub</div>
+    <div class="text-red-300 text-sm mt-1">Store 039376 · Dallas, GA</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+    <div class="text-center font-bold text-gray-800 text-lg">Sign In</div>
+    <div id="loginError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 text-center"></div>
+    <div>
+      <label class="label">Name</label>
+      <input id="loginName" type="text" list="loginNames" placeholder="Your name…" class="field" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
+      <datalist id="loginNames"><option>Shannell</option><option>JaDon</option><option>Harold</option><option>Timothy</option><option>SL</option></datalist>
+    </div>
+    <div>
+      <label class="label">Password</label>
+      <input id="loginPass" type="password" placeholder="Password…" class="field" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button onclick="doLogin()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-base">Sign In</button>
+    <div class="text-xs text-gray-400 text-center">RGM · DM · ASL access levels</div>
+  </div>
+</div>
+
 <div id="windowBanner" class="hidden bg-amber-400 text-amber-900 text-center py-2 font-bold text-sm sticky top-0 z-50">
   ⭐ WINDOW OPEN — Jul 14–20, 2026 · FSCC Audit Window Is Active ⭐
 </div>
@@ -55,7 +79,11 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
         <span class="bg-red-900 text-red-200 text-xs font-semibold px-2 py-0.5 rounded">039376</span>
         <span class="bg-red-800 text-red-300 text-xs px-2 py-0.5 rounded">Cycle 1 · 2026</span>
       </div>
-      <div class="text-red-300 text-xs mt-0.5">8876 Dallas Acworth Hwy · Dallas, GA</div>
+      <div class="text-red-300 text-xs mt-0.5 flex items-center gap-2">
+        <span>8876 Dallas Acworth Hwy · Dallas, GA</span>
+        <span id="currentUserBadge" class="hidden bg-red-800 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+        <button id="logoutBtn" onclick="doLogout()" class="hidden text-red-400 hover:text-white text-xs underline">Sign out</button>
+      </div>
     </div>
     <div class="flex items-center gap-2">
       <button onclick="auditPdfClick()" id="auditPdfBtn"
@@ -1115,8 +1143,6 @@ function loadEntryInModal(id){
   document.getElementById('emDate').value=e.date;
   document.getElementById('emPerson').value=e.person||'';
   document.getElementById('emStatus').value=e.status||'';
-  document.getElementById('emRgm').value=e.rgmSchedule||'';
-  document.getElementById('emDm').value=e.dmSchedule||'';
   document.getElementById('emTask').value=e.tasks||'';
   document.getElementById('emAudit').value=e.auditDesc||'';
   document.getElementById('emNotes').value=e.notes||'';
@@ -1196,7 +1222,8 @@ function saveEntry(){
 
 function deleteEntry(){
   const id=document.getElementById('emId').value||_editEntryId;
-  if(!id||!confirm('Delete this entry?'))return;
+  if(!id)return;
+  if(!confirm('Delete this entry?'))return;
   entries=entries.filter(e=>e.id!==id);
   saveAll();closeModal('entryModal');renderCalendar();renderDashboard();
 }
@@ -1274,23 +1301,35 @@ function renderOps(){
         (item.unit==='°F'&&parseFloat(val)>item.threshold)||
         (item.unit==='ppm'&&parseFloat(val)<item.threshold)
       );
-      html+=`<div class="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 last:border-0 ${isDone&&!isAlert?'bg-green-50':''}">
-        <input type="checkbox" class="w-4 h-4 accent-green-500 flex-shrink-0" ${isDone?'checked':''}
-          onchange="toggleChecklist('${date}','${item.id}',this.checked,document.getElementById('cl-val-${item.id}')?.value)">
-        <div class="flex-1 min-w-0">
-          <div class="text-sm text-gray-700 flex items-center gap-1.5 flex-wrap">
-            ${item.critical?'<span class="text-red-500 font-bold text-xs">★</span>':''}
-            ${item.label}
-            ${item.finding?`<span class="text-xs text-blue-400">[${item.finding.replace('sig-','')}]</span>`:''}
+      const noAnswer = entry.done===undefined&&entry.no===undefined;
+      const isNo = entry.no===true;
+      html+=`<div class="px-4 py-3 border-b border-gray-50 last:border-0 ${isDone&&!isAlert?'bg-green-50':isNo?'bg-red-50':''}">
+        <div class="flex items-start gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-gray-700 flex items-center gap-1.5 flex-wrap">
+              ${item.critical?'<span class="text-red-500 font-bold text-xs">★</span>':''}
+              ${item.label}
+              ${item.finding?`<span class="text-xs text-blue-400">[${item.finding.replace('sig-','')}]</span>`:''}
+            </div>
+            ${item.type==='temp'?`<div class="flex items-center gap-1.5 mt-1.5">
+              <input id="cl-val-${item.id}" type="number" step="0.1" value="${val}" placeholder="Enter value"
+                class="w-20 border rounded px-2 py-1 text-sm ${isAlert?'border-red-400 bg-red-50 text-red-700 font-bold':''}"
+                onchange="toggleChecklist('${date}','${item.id}',true,this.value)">
+              <span class="text-xs text-gray-500">${item.unit}</span>
+              ${isAlert?`<span class="text-xs text-red-600 font-bold">⚠️ OUT OF RANGE</span>`:''}
+            </div>`:''}
+          </div>
+          <div class="flex gap-1.5 flex-shrink-0">
+            <button onclick="toggleChecklist('${date}','${item.id}',true,document.getElementById('cl-val-${item.id}')?.value)"
+              class="px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${isDone&&!isNo?'bg-green-500 text-white shadow-sm':'bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-700'}">
+              ✓ Yes
+            </button>
+            <button onclick="toggleChecklistNo('${date}','${item.id}')"
+              class="px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${isNo?'bg-red-500 text-white shadow-sm':'bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-700'}">
+              ✗ No
+            </button>
           </div>
         </div>
-        ${item.type==='temp'?`<div class="flex items-center gap-1">
-          <input id="cl-val-${item.id}" type="number" step="0.1" value="${val}" placeholder="—"
-            class="w-16 border rounded px-2 py-1 text-xs ${isAlert?'border-red-400 bg-red-50 text-red-700 font-bold':''}"
-            onchange="toggleChecklist('${date}','${item.id}',true,this.value)">
-          <span class="text-xs text-gray-400">${item.unit}</span>
-          ${isAlert?`<span class="text-xs text-red-600 font-bold">⚠️</span>`:''}
-        </div>`:''}
       </div>`;
     });
   });
@@ -1324,7 +1363,12 @@ function renderOps(){
 
 function toggleChecklist(date,itemId,done,value){
   if(!clLog[date])clLog[date]={};
-  clLog[date][itemId]={done,value:value||'',time:new Date().toTimeString().slice(0,5)};
+  clLog[date][itemId]={done,no:false,value:value||'',time:new Date().toTimeString().slice(0,5),by:currentUser?.name||''};
+  saveAll();renderOps();
+}
+function toggleChecklistNo(date,itemId){
+  if(!clLog[date])clLog[date]={};
+  clLog[date][itemId]={done:false,no:true,value:'',time:new Date().toTimeString().slice(0,5),by:currentUser?.name||''};
   saveAll();renderOps();
 }
 
@@ -2038,6 +2082,50 @@ function openFindingsBySev(sev){
     </div>`;
   }).join('');
   document.getElementById('sevModal').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════
+const USERS=[
+  {name:'Shannell', role:'RGM',  password:'RGM'},
+  {name:'JaDon',    role:'DM',   password:'DM'},
+  {name:'Harold',   role:'ASL',  password:'ASL'},
+  {name:'Timothy',  role:'ASL',  password:'ASL'},
+  {name:'SL',       role:'ASL',  password:'ASL'},
+];
+let currentUser = null;
+
+function doLogin(){
+  const name = document.getElementById('loginName').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  // Match by name (case-insensitive) OR any ASL user with ASL password
+  let user = USERS.find(u=>u.name.toLowerCase()===name.toLowerCase());
+  if(!user && pass==='ASL' && name){
+    user = {name, role:'ASL', password:'ASL'};
+  }
+  if(!user || user.password !== pass){
+    errEl.textContent = 'Incorrect name or password. Try again.';
+    errEl.classList.remove('hidden');
+    document.getElementById('loginPass').value='';
+    return;
+  }
+  currentUser = user;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('currentUserBadge').textContent=`${user.name} · ${user.role}`;
+  document.getElementById('currentUserBadge').classList.remove('hidden');
+  document.getElementById('logoutBtn').classList.remove('hidden');
+  errEl.classList.add('hidden');
+}
+
+function doLogout(){
+  currentUser = null;
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginName').value='';
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('currentUserBadge').classList.add('hidden');
+  document.getElementById('logoutBtn').classList.add('hidden');
 }
 
 // ═══════════════════════════════════════════════
