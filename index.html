@@ -115,6 +115,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
     <button onclick="showTab('tracker')"   id="nav-tracker"   class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">📅 60-Day Tracker</button>
     <button onclick="showTab('ops')"       id="nav-ops"       class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">✅ Daily Ops</button>
     <button onclick="showTab('files')"     id="nav-files"     class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">📎 Uploaded Files</button>
+    <button onclick="showTab('walk')"      id="nav-walk"      class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">🚶 Store Walk</button>
     <button onclick="showTab('findings')"  id="nav-findings"  class="px-4 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent whitespace-nowrap hover:text-red-600">🔍 Findings (16)</button>
   </div>
 </nav>
@@ -267,6 +268,69 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
     <div id="fileTotalBadge" class="ml-auto text-xs text-gray-400"></div>
   </div>
   <div id="filesList" class="space-y-2"></div>
+</section>
+
+<!-- ═══ STORE WALK ═══ -->
+<section id="tab-walk" class="hidden max-w-2xl mx-auto px-4 py-5">
+
+  <!-- Active walk header -->
+  <div id="walkHeader" class="bg-white rounded-xl shadow-sm p-4 mb-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-lg font-bold text-gray-800">🚶 Store Walk</div>
+        <div id="walkDateLabel" class="text-sm text-gray-500"></div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="endWalk()" id="walkEndBtn" class="hidden bg-gray-700 text-white text-sm font-bold px-4 py-2 rounded-lg">End Walk</button>
+        <button onclick="startWalk()" id="walkStartBtn" class="bg-red-600 text-white text-sm font-bold px-4 py-2 rounded-lg">Start Walk</button>
+      </div>
+    </div>
+    <div id="walkSummaryBar" class="hidden mt-3 flex gap-2 text-xs font-semibold flex-wrap">
+      <span id="wsBadgeCrit"  class="bg-red-100    text-red-700    px-2 py-1 rounded-full">0 Critical</span>
+      <span id="wsBadgeAttn"  class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">0 Needs Attention</span>
+      <span id="wsBadgeMinor" class="bg-green-100  text-green-700  px-2 py-1 rounded-full">0 Minor</span>
+    </div>
+  </div>
+
+  <!-- Quick add form (shown during active walk) -->
+  <div id="walkAddForm" class="hidden bg-white rounded-xl shadow-sm p-4 mb-4">
+    <div class="text-xs font-bold text-gray-500 uppercase mb-3">Log an Issue</div>
+
+    <!-- Category buttons -->
+    <div class="grid grid-cols-3 gap-2 mb-3" id="walkCatBtns">
+      <button onclick="walkSelectCat(this,'Cleaning')"    class="walk-cat-btn border-2 border-gray-200 rounded-xl p-3 text-center text-sm font-semibold text-gray-600 hover:border-red-400 active:bg-red-50">🧹<br>Cleaning</button>
+      <button onclick="walkSelectCat(this,'Equipment')"   class="walk-cat-btn border-2 border-gray-200 rounded-xl p-3 text-center text-sm font-semibold text-gray-600 hover:border-red-400 active:bg-red-50">🔧<br>Equipment</button>
+      <button onclick="walkSelectCat(this,'Food Safety')" class="walk-cat-btn border-2 border-gray-200 rounded-xl p-3 text-center text-sm font-semibold text-gray-600 hover:border-red-400 active:bg-red-50">🛡️<br>Food Safety</button>
+      <button onclick="walkSelectCat(this,'Temperature')" class="walk-cat-btn border-2 border-gray-200 rounded-xl p-3 text-center text-sm font-semibold text-gray-600 hover:border-red-400 active:bg-red-50">🌡️<br>Temperature</button>
+      <button onclick="walkSelectCat(this,'Pest')"        class="walk-cat-btn border-2 border-gray-200 rounded-xl p-3 text-center text-sm font-semibold text-gray-600 hover:border-red-400 active:bg-red-50">🐛<br>Pest</button>
+      <button onclick="walkSelectCat(this,'Other')"       class="walk-cat-btn border-2 border-gray-200 rounded-xl p-3 text-center text-sm font-semibold text-gray-600 hover:border-red-400 active:bg-red-50">⚠️<br>Other</button>
+    </div>
+
+    <textarea id="walkNote" rows="2" placeholder="Describe what you found…" class="field w-full mb-3"></textarea>
+
+    <!-- Severity -->
+    <div class="flex gap-2 mb-3">
+      <button onclick="walkSelectSev(this,'minor')"          class="walk-sev-btn flex-1 border-2 border-gray-200 rounded-lg py-2 text-xs font-bold text-green-700  hover:border-green-400">✅ Minor</button>
+      <button onclick="walkSelectSev(this,'needs-attention')" class="walk-sev-btn flex-1 border-2 border-gray-200 rounded-lg py-2 text-xs font-bold text-yellow-700 hover:border-yellow-400">⚠️ Needs Attention</button>
+      <button onclick="walkSelectSev(this,'critical')"       class="walk-sev-btn flex-1 border-2 border-gray-200 rounded-lg py-2 text-xs font-bold text-red-700    hover:border-red-400">🔴 Critical</button>
+    </div>
+
+    <!-- Photo -->
+    <div class="mb-3">
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Photos (optional)</label>
+      <input type="file" id="walkPhotoInput" accept="image/*" capture="environment" multiple class="hidden" onchange="walkHandlePhotos(event)">
+      <button onclick="document.getElementById('walkPhotoInput').click()" class="w-full border-2 border-dashed border-gray-300 rounded-xl py-3 text-sm text-gray-500 hover:border-red-400 hover:text-red-500 font-semibold">📷 Take Photo / Choose from Gallery</button>
+      <div id="walkPhotoPreviews" class="flex flex-wrap gap-2 mt-2"></div>
+    </div>
+
+    <button onclick="walkSaveItem()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-sm">💾 Save Issue</button>
+  </div>
+
+  <!-- Items logged this walk -->
+  <div id="walkItemsList" class="space-y-3"></div>
+
+  <!-- Past walks -->
+  <div id="walkHistory" class="mt-6"></div>
 </section>
 
 <!-- ═══ FINDINGS ═══ -->
@@ -823,11 +887,16 @@ let tempLogs=ls('tempLogs',[]);
 let pestWalks=ls('pestWalks',[]);
 let uploadedFiles=ls('uploadedFiles',[]);
 let daySchedules=ls('daySchedules',{});
+let walkItems=ls('walkItems',[]);
 
 let _pendingUploads=[];
 let _editFindingId=null;
 let _editEntryId=null;
 let _entryPendingFiles=[];
+let _activeWalkId=null;
+let _walkPendingPhotos=[];
+let _walkSelectedCat='';
+let _walkSelectedSev='';
 
 // ── Save to localStorage + Supabase ──────────────────────
 function saveAll(){
@@ -840,6 +909,7 @@ function saveAll(){
   lsSave('uploadedFiles',uploadedFiles.map(f=>{const{fileData,...meta}=f;return meta;}));
   uploadedFiles.forEach(f=>{if(f.fileData&&f.fileData!=='[too-large]')_idb.put(f.id,f.fileData);});
   lsSave('daySchedules',daySchedules);
+  lsSave('walkItems',walkItems);
   if(_supabaseReady) _syncToSupabase();
 }
 
@@ -894,6 +964,16 @@ async function _syncToSupabase(){
       entry_id:f.entryId||null,storage_path:null
     })));
   }catch(err){console.warn('Supabase files sync error:',err);anyErr=true;}
+  try{
+    if(walkItems.length) await _sbUpsert('entries', walkItems.map(w=>({
+      id:w.id, date:w.date, person:w.by||null,
+      status:'walk_item',
+      tasks:w.category||null,
+      audit_desc:w.severity||null,
+      notes:(w.walkId||'')+'\n'+(w.note||''),
+      updated_at:w.updatedAt||new Date().toISOString()
+    })));
+  }catch(err){console.warn('Supabase walkItems sync error:',err);anyErr=true;}
   if(anyErr){
     _showSyncBanner('⚠️ Some data failed to sync to cloud — your local data is still saved. Check console for details.','yellow');
   } else {
@@ -1007,7 +1087,7 @@ async function loadFromSupabase(){
 // TABS
 // ═══════════════════════════════════════════════
 function showTab(name){
-  ['dashboard','tracker','ops','files','findings'].forEach(t=>{
+  ['dashboard','tracker','ops','files','walk','findings'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('hidden',t!==name);
     document.getElementById('nav-'+t).classList.toggle('tab-active',t===name);
   });
@@ -1015,7 +1095,184 @@ function showTab(name){
   if(name==='tracker')   renderCalendar();
   if(name==='ops')       renderOps();
   if(name==='files')     renderFiles();
+  if(name==='walk')      renderWalk();
   if(name==='findings')  renderFindings();
+}
+
+// ═══════════════════════════════════════════════
+// STORE WALK
+// ═══════════════════════════════════════════════
+function startWalk(){
+  const today=new Date().toISOString().slice(0,10);
+  _activeWalkId='walk_'+today+'_'+Date.now();
+  _walkPendingPhotos=[];
+  _walkSelectedCat='';
+  _walkSelectedSev='';
+  document.getElementById('walkStartBtn').classList.add('hidden');
+  document.getElementById('walkEndBtn').classList.remove('hidden');
+  document.getElementById('walkAddForm').classList.remove('hidden');
+  document.getElementById('walkSummaryBar').classList.remove('hidden');
+  renderWalk();
+}
+
+function endWalk(){
+  if(!confirm('End this walk? You can still view items after.'))return;
+  _activeWalkId=null;
+  _walkPendingPhotos=[];
+  document.getElementById('walkStartBtn').classList.remove('hidden');
+  document.getElementById('walkEndBtn').classList.add('hidden');
+  document.getElementById('walkAddForm').classList.add('hidden');
+  renderWalk();
+}
+
+function walkSelectCat(btn,cat){
+  _walkSelectedCat=cat;
+  document.querySelectorAll('.walk-cat-btn').forEach(b=>{
+    b.classList.toggle('border-red-500',b===btn);
+    b.classList.toggle('bg-red-50',b===btn);
+    b.classList.toggle('text-red-700',b===btn);
+    b.classList.toggle('border-gray-200',b!==btn);
+  });
+}
+
+function walkSelectSev(btn,sev){
+  _walkSelectedSev=sev;
+  document.querySelectorAll('.walk-sev-btn').forEach(b=>b.classList.remove('border-red-500','border-yellow-400','border-green-400','bg-red-50','bg-yellow-50','bg-green-50'));
+  const colors={critical:['border-red-500','bg-red-50'],'needs-attention':['border-yellow-400','bg-yellow-50'],minor:['border-green-400','bg-green-50']};
+  (colors[sev]||[]).forEach(c=>btn.classList.add(c));
+}
+
+function walkHandlePhotos(ev){
+  const files=[...ev.target.files];
+  const prev=document.getElementById('walkPhotoPreviews');
+  files.forEach(file=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const id=uid();
+      _walkPendingPhotos.push({id,fileData:e.target.result,fileName:file.name,ext:fileExt(file.name),size:file.size});
+      prev.innerHTML+=`<div class="relative"><img src="${e.target.result}" class="w-16 h-16 object-cover rounded-lg border border-gray-200"><button onclick="walkRemovePhoto('${id}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center">✕</button></div>`;
+    };
+    r.readAsDataURL(file);
+  });
+  ev.target.value='';
+}
+
+function walkRemovePhoto(id){
+  _walkPendingPhotos=_walkPendingPhotos.filter(p=>p.id!==id);
+  document.getElementById('walkPhotoPreviews').innerHTML=_walkPendingPhotos.map(p=>`<div class="relative"><img src="${p.fileData}" class="w-16 h-16 object-cover rounded-lg border border-gray-200"><button onclick="walkRemovePhoto('${p.id}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center">✕</button></div>`).join('');
+}
+
+async function walkSaveItem(){
+  if(!_walkSelectedCat){alert('Pick a category first.');return;}
+  if(!_walkSelectedSev){alert('Pick a severity level.');return;}
+  const note=document.getElementById('walkNote').value.trim();
+  const today=new Date().toISOString().slice(0,10);
+  const item={
+    id:uid(), walkId:_activeWalkId, date:today,
+    category:_walkSelectedCat, severity:_walkSelectedSev,
+    note, by:currentUser?.name||'', photoIds:[],
+    updatedAt:new Date().toISOString()
+  };
+  // Save photos to IDB + uploadedFiles
+  for(const p of _walkPendingPhotos){
+    const fObj={id:p.id,fileName:p.fileName,ext:p.ext,size:p.size,
+      category:'Walk Photo',desc:_walkSelectedCat,
+      uploadedBy:currentUser?.name||'',date:today,
+      entryId:item.id,fileData:p.fileData};
+    uploadedFiles.push(fObj);
+    await _idb.put(p.id,p.fileData).catch(()=>{});
+    item.photoIds.push(p.id);
+  }
+  walkItems.push(item);
+  lsSave('walkItems',walkItems);
+  lsSave('uploadedFiles',uploadedFiles.map(({fileData,...m})=>m));
+  // Immediately push this item to Supabase so it's safe
+  if(_supabaseReady){
+    _sbUpsert('entries',[{
+      id:item.id,date:item.date,person:item.by||null,
+      status:'walk_item',tasks:item.category,
+      audit_desc:item.severity,
+      notes:item.walkId+'\n'+item.note,
+      updated_at:item.updatedAt
+    }]).catch(e=>console.warn('walk item sync err',e));
+    if(item.photoIds.length){
+      _sbUpsert('uploaded_files',uploadedFiles.filter(f=>item.photoIds.includes(f.id)).map(f=>({
+        id:f.id,file_name:f.fileName,ext:f.ext,size:f.size||null,
+        category:f.category,description:f.desc,
+        uploaded_by:f.uploadedBy,date:f.date,entry_id:f.entryId,storage_path:null
+      }))).catch(e=>console.warn('walk photo sync err',e));
+    }
+  }
+  // Reset form
+  document.getElementById('walkNote').value='';
+  document.getElementById('walkPhotoPreviews').innerHTML='';
+  _walkPendingPhotos=[];
+  _walkSelectedCat='';
+  _walkSelectedSev='';
+  document.querySelectorAll('.walk-cat-btn').forEach(b=>{b.classList.remove('border-red-500','bg-red-50','text-red-700');b.classList.add('border-gray-200');});
+  document.querySelectorAll('.walk-sev-btn').forEach(b=>b.classList.remove('border-red-500','border-yellow-400','border-green-400','bg-red-50','bg-yellow-50','bg-green-50'));
+  renderWalk();
+}
+
+function walkDeleteItem(id){
+  if(!confirm('Remove this item?'))return;
+  walkItems=walkItems.filter(w=>w.id!==id);
+  lsSave('walkItems',walkItems);
+  renderWalk();
+}
+
+const _sevColor={critical:'bg-red-100 text-red-700','needs-attention':'bg-yellow-100 text-yellow-700',minor:'bg-green-100 text-green-700'};
+const _sevLabel={critical:'🔴 Critical','needs-attention':'⚠️ Needs Attention',minor:'✅ Minor'};
+const _catIcon={Cleaning:'🧹',Equipment:'🔧','Food Safety':'🛡️',Temperature:'🌡️',Pest:'🐛',Other:'⚠️'};
+
+function renderWalk(){
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('walkDateLabel').textContent=fmtDate(today);
+  const todayItems=walkItems.filter(w=>w.date===today);
+  const crit=todayItems.filter(w=>w.severity==='critical').length;
+  const attn=todayItems.filter(w=>w.severity==='needs-attention').length;
+  const minor=todayItems.filter(w=>w.severity==='minor').length;
+  document.getElementById('wsBadgeCrit').textContent=crit+' Critical';
+  document.getElementById('wsBadgeAttn').textContent=attn+' Needs Attention';
+  document.getElementById('wsBadgeMinor').textContent=minor+' Minor';
+  // Items for active walk
+  const activeItems=_activeWalkId?walkItems.filter(w=>w.walkId===_activeWalkId):todayItems;
+  document.getElementById('walkItemsList').innerHTML=activeItems.length
+    ?activeItems.slice().reverse().map(w=>{
+        const photos=uploadedFiles.filter(f=>w.photoIds?.includes(f.id));
+        const photoHtml=photos.length?`<div class="flex flex-wrap gap-1 mt-2">${photos.map(p=>`<img src="${p.fileData||''}" onclick="viewFile('${p.id}')" class="w-14 h-14 object-cover rounded-lg border border-gray-200 cursor-pointer" onerror="this.style.display='none'">`).join('')}</div>`:'';
+        return`<div class="bg-white rounded-xl shadow-sm p-4 border-l-4 ${w.severity==='critical'?'border-red-500':w.severity==='needs-attention'?'border-yellow-400':'border-green-400'}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-lg">${_catIcon[w.category]||'⚠️'}</span>
+              <span class="font-bold text-gray-800 text-sm">${w.category}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full font-semibold ${_sevColor[w.severity]||''}">${_sevLabel[w.severity]||w.severity}</span>
+            </div>
+            <button onclick="walkDeleteItem('${w.id}')" class="text-gray-300 hover:text-red-400 text-lg leading-none flex-shrink-0">✕</button>
+          </div>
+          ${w.note?`<div class="text-sm text-gray-700 mt-2">${w.note}</div>`:''}
+          ${photoHtml}
+          <div class="text-xs text-gray-400 mt-2">👤 ${w.by||'—'} · ${w.date}</div>
+        </div>`;
+      }).join('')
+    :`<div class="text-center text-gray-400 py-10"><div class="text-4xl mb-2">🚶</div><div class="font-semibold">${_activeWalkId?'No issues logged yet — tap a category above to start':'Start a walk to log issues'}</div></div>`;
+  // Past walks (grouped by date, excluding today)
+  const past=walkItems.filter(w=>w.date!==today);
+  const byDate={};
+  past.forEach(w=>{if(!byDate[w.date])byDate[w.date]=[];byDate[w.date].push(w);});
+  const pastDates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+  document.getElementById('walkHistory').innerHTML=pastDates.length?`
+    <div class="text-xs font-bold text-gray-400 uppercase mb-3">Past Walks</div>
+    ${pastDates.map(d=>`
+      <div class="bg-white rounded-xl shadow-sm p-4 mb-3">
+        <div class="font-bold text-gray-700 text-sm mb-2">${fmtDate(d)} <span class="text-gray-400 font-normal">${d}</span></div>
+        <div class="flex gap-2 text-xs mb-2">
+          ${byDate[d].filter(w=>w.severity==='critical').length?`<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">${byDate[d].filter(w=>w.severity==='critical').length} Critical</span>`:''}
+          ${byDate[d].filter(w=>w.severity==='needs-attention').length?`<span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold">${byDate[d].filter(w=>w.severity==='needs-attention').length} Needs Attention</span>`:''}
+          ${byDate[d].filter(w=>w.severity==='minor').length?`<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">${byDate[d].filter(w=>w.severity==='minor').length} Minor</span>`:''}
+        </div>
+        ${byDate[d].map(w=>`<div class="text-xs text-gray-600 py-1 border-t border-gray-50">${_catIcon[w.category]||'⚠️'} <b>${w.category}</b> — ${w.note||'(no note)'}</div>`).join('')}
+      </div>`).join('')}`:'';
 }
 
 // ═══════════════════════════════════════════════
