@@ -377,34 +377,40 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 <!-- Entry Detail Modal -->
 <div id="entryDetailModal" class="overlay hidden" onclick="if(event.target===this)closeModal('entryDetailModal')">
   <div class="modal shadow-2xl" style="max-width:34rem">
+    <!-- Header -->
     <div id="edHdr" class="bg-gray-800 text-white px-5 py-4 rounded-t-2xl flex justify-between items-start sticky top-0 z-10">
       <div>
         <div class="text-xs text-gray-400 mb-0.5" id="edDate"></div>
         <div class="font-bold text-lg" id="edPerson"></div>
-        <div id="edStatusBadge" class="mt-1"></div>
+        <div id="edStatusBadge" class="mt-1 flex items-center gap-2 flex-wrap"></div>
       </div>
       <button onclick="closeModal('entryDetailModal')" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
     </div>
-    <div id="edBody" class="px-5 py-4 space-y-4 overflow-y-auto" style="max-height:72vh"></div>
-    <div class="px-5 pb-5 space-y-2 border-t border-gray-100 pt-3">
-      <!-- Photo/file quick-add row -->
+
+    <!-- Status action buttons -->
+    <div id="edStatusBtns" class="px-5 pt-4 flex gap-2 flex-wrap"></div>
+
+    <!-- Body: task info + update log -->
+    <div id="edBody" class="px-5 py-4 space-y-4 overflow-y-auto" style="max-height:45vh"></div>
+
+    <!-- Add Update form -->
+    <div class="px-5 pb-2 border-t border-gray-100 pt-3 space-y-2">
+      <div class="text-xs font-bold text-gray-400 uppercase">Add Update</div>
+      <textarea id="edUpdateNote" rows="2" placeholder="What was done, what was found, next steps…" class="field w-full text-sm"></textarea>
+      <div id="edUpdatePhotoPreviews" class="flex flex-wrap gap-2"></div>
       <div class="flex gap-2">
-        <button onclick="document.getElementById('edPhotoInput').click()"
-          class="flex-1 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-sm">
-          📷 <span>Camera / Photos</span>
-        </button>
-        <button onclick="document.getElementById('edFileInput').click()"
-          class="flex-1 flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm">
-          📎 <span>Add File</span>
-        </button>
-        <!-- accept without capture= lets iOS/Android show "Take Photo / Choose from Library / Browse" -->
-        <input id="edPhotoInput" type="file" accept="image/*" multiple class="hidden" onchange="attachToEntry(this,'photo')">
-        <input id="edFileInput"  type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt" multiple class="hidden" onchange="attachToEntry(this,'file')">
+        <button onclick="document.getElementById('edPhotoInput').click()" class="flex items-center gap-1 border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-600 hover:border-red-400 hover:text-red-600 font-semibold">📷 Photo</button>
+        <button onclick="document.getElementById('edFileInput').click()"  class="flex items-center gap-1 border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-600 hover:border-gray-500 font-semibold">📎 File</button>
+        <button onclick="saveEntryUpdate()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-xl text-sm">Save Update</button>
       </div>
-      <div class="flex gap-2">
-        <button id="edEditBtn" onclick="" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-sm">✎ Edit Entry</button>
-        <button onclick="closeModal('entryDetailModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Close</button>
-      </div>
+      <input id="edPhotoInput" type="file" accept="image/*" multiple class="hidden" onchange="edHandlePhotos(this)">
+      <input id="edFileInput"  type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt" multiple class="hidden" onchange="attachToEntry(this,'file')">
+    </div>
+
+    <!-- Footer -->
+    <div class="px-5 pb-4 pt-2 flex gap-2">
+      <button id="edEditBtn" onclick="" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-sm">✎ Edit Task</button>
+      <button onclick="closeModal('entryDetailModal')" class="px-4 border border-gray-300 rounded-xl text-sm text-gray-600">Close</button>
     </div>
   </div>
 </div>
@@ -481,6 +487,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
         <textarea id="emAudit" rows="2" placeholder="Reference audit codes, HutBot/SafetyCulture task names…" class="field resize-none"></textarea></div>
       <div><label class="label">Notes</label>
         <textarea id="emNotes" rows="2" placeholder="Any additional notes…" class="field resize-none"></textarea></div>
+      <label class="flex items-center gap-2 cursor-pointer select-none">
+        <input type="checkbox" id="emRequirePhoto" class="w-4 h-4 accent-red-600">
+        <span class="text-sm text-gray-600 font-semibold">📷 Require photo before marking Complete</span>
+      </label>
 
       <!-- File attachments for this entry -->
       <div>
@@ -1501,6 +1511,7 @@ function loadEntryInModal(id){
   document.getElementById('emTask').value=e.tasks||'';
   document.getElementById('emAudit').value=e.auditDesc||'';
   document.getElementById('emNotes').value=e.notes||'';
+  if(document.getElementById('emRequirePhoto')) document.getElementById('emRequirePhoto').checked=e.requirePhoto||false;
   document.getElementById('emDel').classList.remove('hidden');
   document.getElementById('emExisting').classList.add('hidden');
   document.getElementById('emTitle').textContent=fmtDate(e.date);
@@ -1548,15 +1559,27 @@ function updateEmBadge(){
   b.classList.remove('hidden');
 }
 
+function getMonday(dateStr){
+  const d=new Date(dateStr+'T12:00:00');
+  const day=d.getDay(); // 0=Sun,1=Mon...
+  const diff=(day===0)?1:(8-day); // days until next Monday
+  d.setDate(d.getDate()+diff);
+  return d.toISOString().slice(0,10);
+}
+
 function saveEntry(){
   const date=document.getElementById('emDate').value||document.getElementById('emDatePick')?.value;
   const person=document.getElementById('emPerson').value;
   const status=document.getElementById('emStatus').value;
+  const requirePhoto=document.getElementById('emRequirePhoto')?.checked||false;
+  const resolvedDate=date||new Date().toISOString().slice(0,10);
   // No required fields — just need at least a date
-  const data={date:date||new Date().toISOString().slice(0,10),person,status,
+  const data={date:resolvedDate,person,status,
     tasks:document.getElementById('emTask').value,
     auditDesc:document.getElementById('emAudit').value,
     notes:document.getElementById('emNotes').value,
+    requirePhoto,
+    dueDate:getMonday(resolvedDate),
     updatedAt:new Date().toISOString()
   };
   let entryId;
@@ -2159,87 +2182,176 @@ function saveFindingNotes(){
 // ═══════════════════════════════════════════════
 // ENTRY DETAIL VIEW
 // ═══════════════════════════════════════════════
+let _edPendingPhotos=[];
+
 function openEntryDetail(id){
   const e=entries.find(x=>x.id===id); if(!e) return;
-  document.getElementById('edDate').textContent=fmtDate(e.date)+' — '+e.date;
-  document.getElementById('edPerson').textContent=e.person||'—';
-  const colors={Complete:'bg-green-600','In Progress':'bg-amber-500','Not Completed':'bg-red-600',Assigned:'bg-blue-600'};
-  document.getElementById('edStatusBadge').innerHTML=e.status
-    ?`<span class="text-xs font-bold px-2 py-0.5 rounded ${colors[e.status]||'bg-gray-600'} text-white">${e.status}</span>`:'';
+  _edPendingPhotos=[];
+  document.getElementById('edUpdateNote').value='';
+  document.getElementById('edUpdatePhotoPreviews').innerHTML='';
 
+  document.getElementById('edDate').textContent=fmtDate(e.date)+' — '+e.date+(e.dueDate?'  •  Due '+fmtDate(e.dueDate):'');
+  document.getElementById('edPerson').textContent=(e.person||'—')+(e.requirePhoto?' 📷':'');
+
+  const statusColors={Complete:'bg-green-600','In Progress':'bg-amber-500','Not Completed':'bg-red-600',Assigned:'bg-blue-600'};
+  document.getElementById('edStatusBadge').innerHTML=e.status
+    ?`<span class="text-xs font-bold px-2 py-0.5 rounded-full ${statusColors[e.status]||'bg-gray-600'} text-white">${e.status}</span>`:''
+
+  // Status action buttons
+  const today=new Date().toISOString().slice(0,10);
+  const hasPhotos=uploadedFiles.some(f=>f.entryId===e.id&&['jpg','jpeg','png','gif','webp'].includes(f.ext));
+  let btnHtml='';
+  if(e.status==='Assigned'){
+    btnHtml+=`<button onclick="setEntryStatus('${e.id}','In Progress')" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-sm">▶ Start — In Progress</button>`;
+  } else if(e.status==='In Progress'){
+    const canComplete=!e.requirePhoto||hasPhotos;
+    btnHtml+=`<button onclick="${canComplete?`setEntryStatus('${e.id}','Complete')`:`alert('This task requires at least one photo before marking Complete. Add a photo below.')`}" class="flex-1 ${canComplete?'bg-green-600 hover:bg-green-700':'bg-gray-300 text-gray-500 cursor-not-allowed'} text-white font-bold py-2.5 rounded-xl text-sm">${canComplete?'✅ Mark Complete':'✅ Complete (photo required)'}</button>`;
+    btnHtml+=`<button onclick="setEntryStatus('${e.id}','Not Completed')" class="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-2.5 px-3 rounded-xl text-sm">✗ Not Done</button>`;
+  } else if(e.status==='Complete'||e.status==='Not Completed'){
+    btnHtml+=`<button onclick="reopenEntry('${e.id}')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl text-sm">↩ Reopen</button>`;
+  } else {
+    btnHtml+=`<button onclick="setEntryStatus('${e.id}','In Progress')" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-sm">▶ Start — In Progress</button>`;
+  }
+  document.getElementById('edStatusBtns').innerHTML=`<div class="flex gap-2 w-full pb-2">${btnHtml}</div>`;
+
+  // Body: task info + updates log
   const files=uploadedFiles.filter(f=>f.entryId===e.id);
   const imgs=files.filter(f=>['jpg','jpeg','png','gif','webp'].includes(f.ext));
   const docs=files.filter(f=>!['jpg','jpeg','png','gif','webp'].includes(f.ext));
+  const updates=e.updates||[];
 
   let html='';
-
-  if(e.tasks) html+=`<div class="bg-gray-50 rounded-xl p-4">
-    <div class="text-xs font-bold text-gray-400 uppercase mb-1">Tasks / Notes</div>
+  if(e.tasks) html+=`<div class="bg-gray-50 rounded-xl p-3">
+    <div class="text-xs font-bold text-gray-400 uppercase mb-1">Task</div>
     <div class="text-sm text-gray-800 whitespace-pre-line">${e.tasks}</div>
   </div>`;
-
-  if(e.auditDesc) html+=`<div class="bg-blue-50 rounded-xl p-4">
-    <div class="text-xs font-bold text-blue-400 uppercase mb-1">📋 Audit / Finding Reference</div>
+  if(e.auditDesc) html+=`<div class="bg-blue-50 rounded-xl p-3">
+    <div class="text-xs font-bold text-blue-400 uppercase mb-1">📋 Audit Reference</div>
     <div class="text-sm text-blue-800">${e.auditDesc}</div>
   </div>`;
-
-  if(e.notes) html+=`<div class="bg-amber-50 rounded-xl p-4">
+  if(e.notes) html+=`<div class="bg-amber-50 rounded-xl p-3">
     <div class="text-xs font-bold text-amber-500 uppercase mb-1">Notes</div>
     <div class="text-sm text-amber-900">${e.notes}</div>
   </div>`;
 
-  if(imgs.length){
-    html+=`<div>
-      <div class="text-xs font-bold text-gray-400 uppercase mb-2">📸 Photos (${imgs.length})</div>
-      <div class="grid grid-cols-3 gap-2">
-        ${imgs.map(f=>f.fileData&&f.fileData!=='[too-large]'
-          ?`<img src="${f.fileData}" onclick="viewFile('${f.id}')" class="w-full aspect-square object-cover rounded-xl cursor-pointer hover:opacity-90 border border-gray-200">`
-          :`<div class="w-full aspect-square bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-xs">📷 ${f.fileName}</div>`
-        ).join('')}
-      </div>
-    </div>`;
+  // Updates log
+  if(updates.length){
+    html+=`<div><div class="text-xs font-bold text-gray-400 uppercase mb-2">📋 Update Log</div><div class="space-y-2">`;
+    updates.slice().reverse().forEach(u=>{
+      const uPhotos=(u.photoIds||[]).map(pid=>uploadedFiles.find(f=>f.id===pid)).filter(Boolean);
+      const statusLine=u.statusChange?`<span class="text-xs font-bold ${statusColors[u.statusChange]||'bg-gray-600'} text-white px-1.5 py-0.5 rounded-full">${u.statusChange}</span> `:'';
+      html+=`<div class="border border-gray-100 rounded-xl p-3 bg-white">
+        <div class="flex items-center gap-2 mb-1 flex-wrap">
+          ${statusLine}<span class="text-xs font-semibold text-gray-700">${u.by||'—'}</span>
+          <span class="text-xs text-gray-400 ml-auto">${u.at?new Date(u.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''}</span>
+        </div>
+        ${u.note?`<div class="text-sm text-gray-700">${u.note}</div>`:''}
+        ${uPhotos.length?`<div class="flex flex-wrap gap-1 mt-2">${uPhotos.map(f=>`<img src="${f.fileData||''}" onclick="viewFile('${f.id}')" class="w-14 h-14 object-cover rounded-lg border border-gray-200 cursor-pointer" onerror="this.style.display='none'">`).join('')}</div>`:''}
+      </div>`;
+    });
+    html+=`</div></div>`;
   }
 
-  if(docs.length){
-    html+=`<div>
-      <div class="text-xs font-bold text-gray-400 uppercase mb-2">📎 Files (${docs.length})</div>
-      <div class="space-y-1.5">
-        ${docs.map(f=>`<div class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 cursor-pointer hover:bg-gray-100" onclick="viewFile('${f.id}')">
-          <span class="text-lg">${fileIcon(f.fileName)}</span>
-          <span class="text-sm text-gray-700 flex-1 truncate">${f.fileName}</span>
-          <span class="text-xs text-blue-500">Open</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
+  // Original attached photos
+  if(imgs.filter(f=>!(e.updates||[]).flatMap(u=>u.photoIds||[]).includes(f.id)).length){
+    const origImgs=imgs.filter(f=>!(e.updates||[]).flatMap(u=>u.photoIds||[]).includes(f.id));
+    html+=`<div><div class="text-xs font-bold text-gray-400 uppercase mb-2">📸 Photos (${origImgs.length})</div>
+    <div class="grid grid-cols-3 gap-2">${origImgs.map(f=>f.fileData&&f.fileData!=='[too-large]'
+      ?`<img src="${f.fileData}" onclick="viewFile('${f.id}')" class="w-full aspect-square object-cover rounded-xl cursor-pointer hover:opacity-90 border border-gray-200">`
+      :`<div class="w-full aspect-square bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-xs">📷 ${f.fileName}</div>`
+    ).join('')}</div></div>`;
   }
+  if(docs.length) html+=`<div><div class="text-xs font-bold text-gray-400 uppercase mb-2">📎 Files</div><div class="space-y-1.5">${docs.map(f=>`<div class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 cursor-pointer hover:bg-gray-100" onclick="viewFile('${f.id}')"><span class="text-lg">${fileIcon(f.fileName)}</span><span class="text-sm text-gray-700 flex-1 truncate">${f.fileName}</span><span class="text-xs text-blue-500">Open</span></div>`).join('')}</div></div>`;
 
-  if(!e.tasks&&!e.auditDesc&&!e.notes&&!files.length){
-    html=`<div class="text-center py-8 text-gray-400"><div class="text-3xl mb-2">📝</div><div>No details yet — tap Edit to add notes and photos.</div></div>`;
-  }
+  if(!e.tasks&&!e.auditDesc&&!e.notes&&!files.length&&!updates.length)
+    html=`<div class="text-center py-8 text-gray-400"><div class="text-3xl mb-2">📝</div><div>No details yet — add an update below.</div></div>`;
 
   document.getElementById('edBody').innerHTML=html;
   document.getElementById('edEditBtn').onclick=()=>{closeModal('entryDetailModal');openDayView(e.date);};
-  document.getElementById('entryDetailModal').setAttribute('data-entry-id', e.id);
+  document.getElementById('entryDetailModal').setAttribute('data-entry-id',e.id);
   document.getElementById('entryDetailModal').classList.remove('hidden');
 }
 
-function attachToEntry(input, kind){
-  const entryId = document.getElementById('entryDetailModal').getAttribute('data-entry-id');
-  if(!entryId) return;
-  const e = entries.find(x=>x.id===entryId); if(!e) return;
+function setEntryStatus(id, newStatus){
+  const e=entries.find(x=>x.id===id); if(!e) return;
+  const old=e.status;
+  e.status=newStatus;
+  e.updatedAt=new Date().toISOString();
+  if(!e.updates) e.updates=[];
+  e.updates.push({id:uid(),by:currentUser?.name||'',statusChange:newStatus,note:'',photoIds:[],at:new Date().toISOString()});
+  saveAll(); renderCalendar(); renderDashboard();
+  openEntryDetail(id);
+}
+
+function reopenEntry(id){
+  const reason=prompt('Why is this being reopened?');
+  if(reason===null) return;
+  const e=entries.find(x=>x.id===id); if(!e) return;
+  e.status='In Progress';
+  e.updatedAt=new Date().toISOString();
+  if(!e.updates) e.updates=[];
+  e.updates.push({id:uid(),by:currentUser?.name||'',statusChange:'In Progress',note:'Reopened: '+reason,photoIds:[],at:new Date().toISOString()});
+  saveAll(); renderCalendar(); renderDashboard();
+  openEntryDetail(id);
+}
+
+function edHandlePhotos(input){
   Array.from(input.files).forEach(file=>{
-    const reader = new FileReader();
-    reader.onload = ev => {
+    const r=new FileReader();
+    r.onload=ev=>{
+      const id=uid();
+      _edPendingPhotos.push({id,fileData:ev.target.result,fileName:file.name,ext:fileExt(file.name),size:file.size});
+      const prev=document.getElementById('edUpdatePhotoPreviews');
+      prev.innerHTML+=`<div class="relative"><img src="${ev.target.result}" class="w-14 h-14 object-cover rounded-lg border border-gray-200"><button onclick="edRemovePhoto('${id}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center leading-none">✕</button></div>`;
+    };
+    r.readAsDataURL(file);
+  });
+  input.value='';
+}
+
+function edRemovePhoto(id){
+  _edPendingPhotos=_edPendingPhotos.filter(p=>p.id!==id);
+  document.getElementById('edUpdatePhotoPreviews').innerHTML=_edPendingPhotos.map(p=>`<div class="relative"><img src="${p.fileData}" class="w-14 h-14 object-cover rounded-lg border border-gray-200"><button onclick="edRemovePhoto('${p.id}')" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center leading-none">✕</button></div>`).join('');
+}
+
+async function saveEntryUpdate(){
+  const entryId=document.getElementById('entryDetailModal').getAttribute('data-entry-id');
+  const e=entries.find(x=>x.id===entryId); if(!e) return;
+  const note=document.getElementById('edUpdateNote').value.trim();
+  if(!note&&!_edPendingPhotos.length){alert('Add a note or photo before saving.');return;}
+  if(!e.updates) e.updates=[];
+  const photoIds=[];
+  for(const p of _edPendingPhotos){
+    const fObj={id:p.id,fileName:p.fileName,ext:p.ext,size:p.size,
+      category:'Update Photo',desc:'',uploadedBy:currentUser?.name||'',
+      date:e.date,entryId,fileData:p.fileData};
+    uploadedFiles.push(fObj);
+    await _idb.put(p.id,p.fileData).catch(()=>{});
+    photoIds.push(p.id);
+  }
+  const update={id:uid(),by:currentUser?.name||'',note,photoIds,at:new Date().toISOString()};
+  e.updates.push(update);
+  e.updatedAt=new Date().toISOString();
+  _edPendingPhotos=[];
+  saveAll(); renderCalendar(); renderDashboard();
+  openEntryDetail(entryId);
+}
+
+function attachToEntry(input, kind){
+  const entryId=document.getElementById('entryDetailModal').getAttribute('data-entry-id');
+  if(!entryId) return;
+  const e=entries.find(x=>x.id===entryId); if(!e) return;
+  Array.from(input.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
       uploadedFiles.push({
-        id: uid(), fileName: file.name, ext: fileExt(file.name),
-        size: file.size, category: kind==='photo' ? 'Corrective Action Photo' : 'Other',
-        desc: '', uploadedBy: '', date: e.date, entryId,
-        fileData: file.size < 8*1024*1024 ? ev.target.result : '[too-large]',
-        tooLarge: file.size >= 8*1024*1024,
-        createdAt: new Date().toISOString()
+        id:uid(),fileName:file.name,ext:fileExt(file.name),
+        size:file.size,category:kind==='photo'?'Corrective Action Photo':'Other',
+        desc:'',uploadedBy:currentUser?.name||'',date:e.date,entryId,
+        fileData:file.size<8*1024*1024?ev.target.result:'[too-large]',
+        tooLarge:file.size>=8*1024*1024,createdAt:new Date().toISOString()
       });
-      saveAll();
-      openEntryDetail(entryId); // refresh detail view to show new photo
+      saveAll(); openEntryDetail(entryId);
     };
     reader.readAsDataURL(file);
   });
@@ -2308,15 +2420,17 @@ function openWeekRecap(start, end, label){
           <span class="text-xs text-gray-500">${pd}/${pEntries.length} complete</span>
         </div>
         <div class="divide-y divide-gray-50">
-          ${pEntries.map(e=>`<div class="px-4 py-2.5 cursor-pointer hover:bg-gray-50" onclick="closeModal('weekRecapModal');openEntryModal('${e.date}','${e.id}')">
+          ${pEntries.map(e=>{
+            const ups=e.updates||[];
+            const upHtml=ups.length?`<div class="mt-1.5 space-y-0.5">${ups.slice(-3).map(u=>`<div class="text-xs text-gray-500 flex gap-1 flex-wrap"><span class="font-semibold text-gray-600">${u.by||''}:</span><span>${u.statusChange?'→ '+u.statusChange+' ':''}</span><span>${u.note||''}</span>${(u.photoIds||[]).length?`<span class="text-blue-500">📷${u.photoIds.length}</span>`:''}</div>`).join('')}</div>`:'';
+            return`<div class="px-4 py-2.5 cursor-pointer hover:bg-gray-50" onclick="closeModal('weekRecapModal');openEntryDetail('${e.id}')">
             <div class="flex justify-between items-start gap-2">
               <div class="text-xs font-semibold text-gray-600">${fmtDate(e.date)}</div>
               ${statusBadge(e.status)}
             </div>
             ${e.tasks?`<div class="text-sm text-gray-700 mt-1">${e.tasks}</div>`:''}
-            ${e.auditDesc?`<div class="text-xs text-blue-600 mt-0.5">📋 ${e.auditDesc}</div>`:''}
-            ${e.notes?`<div class="text-xs text-gray-400 mt-0.5">${e.notes}</div>`:''}
-          </div>`).join('')}
+            ${upHtml}
+          </div>`;}).join('')}
         </div>
       </div>`;
     });
