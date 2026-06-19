@@ -52,8 +52,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
     <div id="loginError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 text-center"></div>
     <div>
       <label class="label">Name</label>
-      <input id="loginName" type="text" list="loginNames" placeholder="Your name…" class="field" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
-      <datalist id="loginNames"><option>Shannell</option><option>JaDon</option><option>Harold</option><option>Timothy</option><option>SL</option></datalist>
+      <input id="loginName" type="text" list="loginNames" placeholder="Username…" class="field" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
+      <datalist id="loginNames"><option>RGM</option><option>DM</option><option>ASL</option></datalist>
     </div>
     <div>
       <label class="label">Password</label>
@@ -2454,22 +2454,22 @@ function openFindingsBySev(sev){
 // LOGIN
 // ═══════════════════════════════════════════════
 const USERS=[
-  {name:'Shannell', role:'RGM',  password:'RGM'},
-  {name:'JaDon',    role:'DM',   password:'DM'},
-  {name:'Harold',   role:'ASL',  password:'ASL'},
-  {name:'Timothy',  role:'ASL',  password:'ASL'},
-  {name:'SL',       role:'ASL',  password:'ASL'},
+  {username:'RGM',  name:'Shannell', role:'RGM', password:'RGM'},
+  {username:'DM',   name:'JaDon',    role:'DM',  password:'DM'},
+  {username:'ASL',  name:'Harold',   role:'ASL', password:'ASL'},
+  {username:'ASL2', name:'Timothy',  role:'ASL', password:'ASL'},
+  {username:'ASL3', name:'SL',       role:'ASL', password:'ASL'},
 ];
 let currentUser = null;
 
 function doLogin(){
-  const name = document.getElementById('loginName').value.trim();
+  const input = document.getElementById('loginName').value.trim();
   const pass = document.getElementById('loginPass').value;
   const errEl = document.getElementById('loginError');
-  // Match by name (case-insensitive) OR any ASL user with ASL password
-  let user = USERS.find(u=>u.name.toLowerCase()===name.toLowerCase());
-  if(!user && pass==='ASL' && name){
-    user = {name, role:'ASL', password:'ASL'};
+  // Match by username (RGM/DM) or role, case-insensitive
+  let user = USERS.find(u=>u.username.toLowerCase()===input.toLowerCase());
+  if(!user && pass==='ASL' && input){
+    user = {username:input, name:input, role:'ASL', password:'ASL'};
   }
   if(!user || user.password !== pass){
     errEl.textContent = 'Incorrect name or password. Try again.';
