@@ -91,6 +91,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
         <span>📄</span><span id="auditPdfLabel">Audit PDF</span>
       </button>
       <input id="auditPdfInput" type="file" accept=".pdf" class="hidden" onchange="uploadAuditPdf(this)">
+      <button onclick="document.getElementById('helpModal').classList.remove('hidden')"
+        class="flex items-center justify-center w-8 h-8 bg-red-800 hover:bg-red-900 text-white font-black rounded-full border border-red-600 text-sm">?</button>
     </div>
     <div class="flex gap-2 text-center text-xs">
       <div class="bg-red-900 rounded-lg px-3 py-1.5">
@@ -2659,5 +2661,103 @@ _migrateFilesToIdb().then(()=>{
   if(_supabaseReady) loadFromSupabase();
 });
 </script>
+
+<!-- ═══ HELP MODAL ═══ -->
+<div id="helpModal" class="overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal shadow-2xl" style="max-width:36rem">
+    <div class="bg-gray-800 text-white px-5 py-4 rounded-t-2xl flex justify-between items-center sticky top-0 z-10">
+      <div>
+        <div class="text-xs text-gray-400 mb-0.5">FSCC Hub · Store 039376</div>
+        <div class="font-bold text-lg">How to Use This App</div>
+      </div>
+      <button onclick="document.getElementById('helpModal').classList.add('hidden')" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+    </div>
+    <div class="px-5 py-5 space-y-5 text-sm text-gray-700">
+
+      <!-- Dashboard -->
+      <div>
+        <div class="font-bold text-gray-900 text-base mb-1">📊 Dashboard</div>
+        <p class="text-gray-600 mb-2">Your daily snapshot. Check this first every morning to see where everything stands — how many findings are resolved, task progress by person, and what still needs to happen before the audit window opens July 14.</p>
+        <div class="bg-purple-50 border border-purple-200 rounded-xl p-3">
+          <div class="font-bold text-purple-800 mb-1">🎯 Score Simulator — why does it say we'd fail today?</div>
+          <p class="text-purple-700 text-xs leading-relaxed">The simulator starts at 16 — one point for every open finding from the June 14 audit. Each time you fully close out a finding in the <b>Findings tab</b> (with RGM + AC + RDO sign-off), the score drops by 1. The target to pass is <b>under 10</b>. Right now it shows 16 because none of the findings have been formally signed off yet. Completing tasks in the 60-Day Tracker does <i>not</i> move this number — only closing findings does. To move the score, go to the Findings tab, open each one you've addressed, and complete the 3-person sign-off.</p>
+        </div>
+      </div>
+
+      <hr class="border-gray-100">
+
+      <!-- Tracker -->
+      <div>
+        <div class="font-bold text-gray-900 text-base mb-1">📅 60-Day Tracker</div>
+        <p class="text-gray-600 mb-2">Every task for the next 60 days lives here. The calendar runs Tuesday through Monday — each week ends on Monday, and that's when tasks are due.</p>
+        <div class="space-y-2">
+          <div class="bg-blue-50 rounded-lg p-3">
+            <div class="font-bold text-blue-800 text-xs uppercase mb-1">Adding a new task</div>
+            <p class="text-blue-700 text-xs">Tap any blank day on the calendar — a form opens. Fill in who it's assigned to, describe the task, and set status to <b>Assigned</b>. If you did something unscheduled (like a cleaning task you just handled), add it the same way and mark it <b>In Progress</b> or <b>Complete</b> right away. Tap <b>+ New Entry</b> at the top if you want to pick a specific date.</p>
+          </div>
+          <div class="bg-amber-50 rounded-lg p-3">
+            <div class="font-bold text-amber-800 text-xs uppercase mb-1">Updating a task each day</div>
+            <p class="text-amber-700 text-xs">Tap any task to open it. Use the status button to move it from <b>Assigned → In Progress → Complete</b>. Add an update note in the box below — type what was done, what you found, or what's next. Attach a photo from your camera or gallery. Every update is saved with your name and timestamp so there's a full history.</p>
+          </div>
+          <div class="bg-green-50 rounded-lg p-3">
+            <div class="font-bold text-green-800 text-xs uppercase mb-1">Photo required tasks</div>
+            <p class="text-green-700 text-xs">If a task was created with "Require photo before marking Complete" checked, the Complete button stays grayed out until at least one photo is attached. This is for tasks where you need proof it was done.</p>
+          </div>
+        </div>
+      </div>
+
+      <hr class="border-gray-100">
+
+      <!-- Daily Ops -->
+      <div>
+        <div class="font-bold text-gray-900 text-base mb-1">✅ Daily Ops</div>
+        <p class="text-gray-600">Your daily food safety checklist. For each item tap <b>Yes</b> (done) or <b>No</b> (not done / issue found). The log records who answered and when. Also use this tab to log temperature readings and pest walks — both are tracked and timestamped for the audit record.</p>
+      </div>
+
+      <hr class="border-gray-100">
+
+      <!-- Uploaded Files -->
+      <div>
+        <div class="font-bold text-gray-900 text-base mb-1">📎 Uploaded Files</div>
+        <p class="text-gray-600">Drop any document here — audit reports, training records, equipment repair invoices, photos. Files are grouped by date so you can scroll back and find what was uploaded when. Use the search box to find a file by name. This is the permanent record for the store — anything you might need to show an auditor goes here.</p>
+      </div>
+
+      <hr class="border-gray-100">
+
+      <!-- Store Walk -->
+      <div>
+        <div class="font-bold text-gray-900 text-base mb-1">🚶 Store Walk</div>
+        <p class="text-gray-600 mb-2">Use this when you're physically in the store doing a walk. Tap <b>Start Walk</b>, then log each issue you find one at a time — pick the category (Cleaning, Equipment, Food Safety, etc.), describe what you saw, mark the severity, and take a photo on the spot. Each item saves the moment you hit Save Issue.</p>
+        <p class="text-gray-600">Every walk is saved as a permanent record — date, who did it, every item found with photos. Scroll down to see past walks. This builds the documentation trail showing active management oversight between audits.</p>
+      </div>
+
+      <hr class="border-gray-100">
+
+      <!-- Findings -->
+      <div>
+        <div class="font-bold text-gray-900 text-base mb-1">🔍 Findings (16)</div>
+        <p class="text-gray-600">All 16 findings from the June 14 FSCC audit. Each one shows what the auditor found and what needs to be corrected. When a finding is fully resolved, it requires a <b>3-person sign-off</b> — RGM, AC (Area Coach), and RDO — before it counts as closed. Closing findings here is what moves the Score Simulator on the Dashboard.</p>
+      </div>
+
+      <hr class="border-gray-100">
+
+      <!-- Logins -->
+      <div>
+        <div class="font-bold text-gray-900 text-base mb-1">🔐 Login Reference</div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-gray-50 rounded-lg p-2"><div class="font-bold text-gray-700">RGM (Shannell)</div><div class="text-gray-500">Username: RGM · Password: RGM</div></div>
+          <div class="bg-gray-50 rounded-lg p-2"><div class="font-bold text-gray-700">DM (JaDon)</div><div class="text-gray-500">Username: DM · Password: DM</div></div>
+          <div class="bg-gray-50 rounded-lg p-2"><div class="font-bold text-gray-700">Shift Leader</div><div class="text-gray-500">Username: SL · Password: SL</div></div>
+          <div class="bg-gray-50 rounded-lg p-2"><div class="font-bold text-gray-700">ASL / Others</div><div class="text-gray-500">Username: ASL · Password: ASL</div></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="px-5 pb-5">
+      <button onclick="document.getElementById('helpModal').classList.add('hidden')" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl">Got it</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
