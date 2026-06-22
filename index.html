@@ -266,6 +266,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
   </div>
 
   <!-- File list -->
+  <div class="mb-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+    <div class="text-sm text-amber-800"><span class="font-bold">Sync photos to cloud</span> — run this once on each device that has uploaded photos so they're available everywhere.</div>
+    <button onclick="syncAllPhotosToCloud()" id="syncCloudBtn" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-lg whitespace-nowrap">☁️ Sync Now</button>
+  </div>
   <div class="flex flex-wrap gap-2 mb-3 items-center">
     <select id="fileFilterCat" onchange="renderFiles()" class="field" style="width:auto">
       <option value="ALL">All Categories</option>
@@ -2124,6 +2128,20 @@ function savePendingUploads(){
   saveAll();
   renderFiles();
   renderCalendar();
+}
+
+async function syncAllPhotosToCloud(){
+  const btn=document.getElementById('syncCloudBtn');
+  btn.textContent='Syncing…';btn.disabled=true;
+  let done=0,total=uploadedFiles.length;
+  for(const f of uploadedFiles){
+    let data=f.fileData&&f.fileData!=='[too-large]'?f.fileData:await _idb.get(f.id).catch(()=>null);
+    if(data) await _storageUpload(f.id,f.ext,data);
+    done++;
+    btn.textContent='Syncing '+done+'/'+total+'…';
+  }
+  btn.textContent='✅ Done!';
+  setTimeout(()=>{btn.textContent='☁️ Sync Now';btn.disabled=false;},3000);
 }
 
 const _IMG_EXTS=['jpg','jpeg','png','gif','webp'];
