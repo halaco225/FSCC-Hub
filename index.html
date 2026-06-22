@@ -839,6 +839,33 @@ async function _sbUpsert(table, rows){
   if(!r.ok) throw new Error(await r.text());
 }
 
+// ── Supabase Storage helpers ──
+const _STORAGE_BUCKET = 'fscc-files';
+async function _storageUpload(id, ext, base64){
+  if(!_supabaseReady||!base64||base64==='[too-large]') return;
+  try{
+    const mime = (['jpg','jpeg'].includes(ext)?'image/jpeg':ext==='png'?'image/png':ext==='gif'?'image/gif':ext==='webp'?'image/webp':ext==='pdf'?'application/pdf':'application/octet-stream');
+    const byteStr = atob(base64.split(',')[1]||base64);
+    const arr = new Uint8Array(byteStr.length);
+    for(let i=0;i<byteStr.length;i++) arr[i]=byteStr.charCodeAt(i);
+    const blob = new Blob([arr],{type:mime});
+    await fetch(SUPABASE_URL+'/storage/v1/object/'+_STORAGE_BUCKET+'/'+id+'.'+ext,{
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':mime,'x-upsert':'true'},
+      body:blob
+    });
+  }catch(e){ console.warn('Storage upload failed',e); }
+}
+async function _storageDownload(id, ext){
+  if(!_supabaseReady) return null;
+  try{
+    const r = await fetch(SUPABASE_URL+'/storage/v1/object/public/'+_STORAGE_BUCKET+'/'+id+'.'+ext);
+    if(!r.ok) return null;
+    const blob = await r.blob();
+    return await new Promise(res=>{const fr=new FileReader();fr.onload=e=>res(e.target.result);fr.readAsDataURL(blob);});
+  }catch(e){ return null; }
+}
+
 function ls(k,d){try{return JSON.parse(localStorage.getItem('fscc_'+k))??d;}catch{return d;}}
 function lsSave(k,v){
   try{localStorage.setItem('fscc_'+k,JSON.stringify(v));}
@@ -2086,11 +2113,10 @@ function removePendingUpload(idx){
 
 function savePendingUploads(){
   _pendingQueue.forEach(f=>{
-    // Auto-attach to matching calendar entry if one exists on that date
     const dateEntries=entries.filter(e=>e.date===f.date);
     if(dateEntries.length===1) f.entryId=dateEntries[0].id;
-    // if multiple entries on that date, leave entryId null (shown as day-level attachment)
     uploadedFiles.push(f);
+    if(f.fileData&&f.fileData!=='[too-large]') _storageUpload(f.id,f.ext,f.fileData);
   });
   _pendingQueue=[];
   document.getElementById('pendingUploads').classList.add('hidden');
@@ -2170,9 +2196,10 @@ async function viewFile(id){
   document.getElementById('fileViewerModal').classList.remove('hidden');
   // Get fileData from memory or IndexedDB
   let src=f.fileData&&f.fileData!=='[too-large]'?f.fileData:await _idb.get(id).catch(()=>null);
-  if(src) f.fileData=src; // cache back into memory
+  if(!src) src=await _storageDownload(id,f.ext);
+  if(src){ f.fileData=src; await _idb.put(id,src).catch(()=>{}); }
   if(!src){
-    body.innerHTML=`<div class="text-center text-gray-400 py-12 text-4xl">📎<br><div class="text-base mt-2">${f.fileName}<br><span class="text-sm">File data not available — may have been uploaded on another device.</span></div></div>`;
+    body.innerHTML=`<div class="text-center text-gray-400 py-12 text-4xl">📎<br><div class="text-base mt-2">${f.fileName}<br><span class="text-sm">File not available — try re-uploading.</span></div></div>`;
     return;
   }
   if(['jpg','jpeg','png','gif','webp'].includes(f.ext)){
@@ -2550,6 +2577,7 @@ async function saveEntryUpdate(){
       date:e.date,entryId,fileData:p.fileData};
     uploadedFiles.push(fObj);
     await _idb.put(p.id,p.fileData).catch(()=>{});
+    _storageUpload(p.id,p.ext,p.fileData);
     photoIds.push(p.id);
   }
   const update={id:uid(),by:currentUser?.name||'',note,photoIds,at:new Date().toISOString()};
@@ -2567,13 +2595,13 @@ function attachToEntry(input, kind){
   Array.from(input.files).forEach(file=>{
     const reader=new FileReader();
     reader.onload=ev=>{
-      uploadedFiles.push({
-        id:uid(),fileName:file.name,ext:fileExt(file.name),
+      const _af={id:uid(),fileName:file.name,ext:fileExt(file.name),
         size:file.size,category:kind==='photo'?'Corrective Action Photo':'Other',
         desc:'',uploadedBy:currentUser?.name||'',date:e.date,entryId,
         fileData:file.size<8*1024*1024?ev.target.result:'[too-large]',
-        tooLarge:file.size>=8*1024*1024,createdAt:new Date().toISOString()
-      });
+        tooLarge:file.size>=8*1024*1024,createdAt:new Date().toISOString()};
+      uploadedFiles.push(_af);
+      if(_af.fileData&&_af.fileData!=='[too-large]') _storageUpload(_af.id,_af.ext,_af.fileData);
       saveAll(); openEntryDetail(entryId);
     };
     reader.readAsDataURL(file);
