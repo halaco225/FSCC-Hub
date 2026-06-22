@@ -2634,15 +2634,19 @@ function openWeekRecap(start, end, label){
 
   const taskCard = (e) => {
     const ups = e.updates||[];
-    const upHtml = ups.length ? `<div class="mt-2 space-y-1">${ups.map(u=>`<div class="text-xs text-gray-500 flex gap-1 flex-wrap"><span class="font-semibold text-gray-600">${u.by||''}${u.by?':':''}</span>${u.statusChange?`<span class="text-gray-400">→ ${u.statusChange}</span>`:''}<span>${u.note||''}</span>${(u.photoIds||[]).length?`<span class="text-blue-500 ml-1">📷${u.photoIds.length}</span>`:''}</div>`).join('')}</div>` : '';
-    return `<div class="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-0" onclick="closeModal('weekRecapModal');openEntryDetail('${e.id}')">
-      <div class="flex justify-between items-start gap-2 flex-wrap">
-        <span class="text-xs font-semibold text-gray-500">${fmtDate(e.date)} · ${e.person||'Unassigned'}</span>
-        ${statusBadge(e.status)}
-      </div>
-      ${e.tasks?`<div class="text-sm text-gray-800 mt-1 font-medium">${e.tasks}</div>`:''}
-      ${upHtml}
-    </div>`;
+    let upLines = '';
+    ups.forEach(function(u){
+      const sc = u.statusChange ? '<span class="text-gray-400">→ '+u.statusChange+'</span> ' : '';
+      const ph = (u.photoIds||[]).length ? '<span class="text-blue-500 ml-1">📷'+u.photoIds.length+'</span>' : '';
+      upLines += '<div class="text-xs text-gray-500 flex gap-1 flex-wrap"><span class="font-semibold text-gray-600">'+(u.by||'')+(u.by?':':'')+'</span>'+sc+'<span>'+(u.note||'')+'</span>'+ph+'</div>';
+    });
+    const upHtml = upLines ? '<div class="mt-2 space-y-1">'+upLines+'</div>' : '';
+    const taskText = e.tasks ? '<div class="text-sm text-gray-800 mt-1 font-medium">'+e.tasks+'</div>' : '';
+    return '<div class="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-0" onclick="closeModal(\'weekRecapModal\');openEntryDetail(\''+e.id+'\')">'+
+      '<div class="flex justify-between items-start gap-2 flex-wrap">'+
+      '<span class="text-xs font-semibold text-gray-500">'+fmtDate(e.date)+' · '+(e.person||'Unassigned')+'</span>'+
+      statusBadge(e.status)+
+      '</div>'+taskText+upHtml+'</div>';
   };
 
   // Two sections: Accomplished and Still To Do
