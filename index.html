@@ -2077,7 +2077,9 @@ function savePendingUploads(){
   renderCalendar();
 }
 
-function renderFiles(){
+const _IMG_EXTS=['jpg','jpeg','png','gif','webp'];
+
+async function renderFiles(){
   const catF=document.getElementById('fileFilterCat').value;
   const search=document.getElementById('fileSearch').value.toLowerCase();
   let list=uploadedFiles.filter(f=>{
@@ -2085,7 +2087,6 @@ function renderFiles(){
     if(search&&!f.fileName.toLowerCase().includes(search)&&!(f.desc||'').toLowerCase().includes(search))return false;
     return true;
   });
-  // Sort by date desc
   list.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   document.getElementById('fileTotalBadge').textContent=`${list.length} file${list.length!==1?'s':''}`;
   if(!list.length){
@@ -2096,10 +2097,17 @@ function renderFiles(){
     </div>`;
     return;
   }
-  // Group by date
+  // Pre-load fileData from IDB for all images in this list
+  await Promise.all(list.filter(f=>_IMG_EXTS.includes(f.ext)&&(!f.fileData||f.fileData==='[too-large]')).map(async f=>{
+    const d=await _idb.get(f.id).catch(()=>null);
+    if(d) f.fileData=d;
+  }));
+
   const byDate={};
   list.forEach(f=>{const k=f.date||'No Date';if(!byDate[k])byDate[k]=[];byDate[k].push(f);});
   const keys=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+  const isImg=f=>_IMG_EXTS.includes(f.ext);
+
   document.getElementById('filesList').innerHTML=keys.map(date=>`
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div class="bg-gray-50 px-4 py-2 text-xs font-bold text-gray-600 flex items-center justify-between">
@@ -2107,21 +2115,24 @@ function renderFiles(){
         <span class="text-gray-400">${byDate[date].length} file${byDate[date].length!==1?'s':''}</span>
       </div>
       ${byDate[date].map(f=>`
-        <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-          <div class="text-2xl flex-shrink-0">${fileIcon(f.fileName)}</div>
+        <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer" onclick="viewFile('${f.id}')">
+          <div class="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
+            ${isImg(f)&&f.fileData&&f.fileData!=='[too-large]'
+              ?`<img src="${f.fileData}" class="w-full h-full object-cover">`
+              :`<span class="text-2xl">${fileIcon(f.fileName)}</span>`}
+          </div>
           <div class="flex-1 min-w-0">
             <div class="font-semibold text-gray-800 text-sm truncate">${f.fileName}</div>
             <div class="text-xs text-gray-400 flex flex-wrap gap-2 mt-0.5">
               <span class="bg-gray-100 text-gray-600 rounded px-1.5">${f.category||'Other'}</span>
               ${f.uploadedBy?`<span>👤 ${f.uploadedBy}</span>`:''}
               ${f.desc?`<span class="truncate max-w-[200px]">${f.desc}</span>`:''}
-              ${f.tooLarge?`<span class="text-amber-600">Large file (metadata only)</span>`:''}
               ${f.entryId?`<span class="text-green-600">📅 Linked to tracker entry</span>`:''}
             </div>
           </div>
-          <div class="flex gap-1 flex-shrink-0">
-            ${(!f.tooLarge&&f.fileData&&f.fileData!=='[too-large]')?`<button onclick="viewFile('${f.id}')" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">View</button>`:''}
-            ${(!f.tooLarge&&f.fileData&&f.fileData!=='[too-large]')?`<button onclick="downloadFile('${f.id}')" class="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-2 py-1 rounded">↓</button>`:''}
+          <div class="flex gap-1 flex-shrink-0" onclick="event.stopPropagation()">
+            <button onclick="viewFile('${f.id}')" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">View</button>
+            <button onclick="downloadFile('${f.id}')" class="text-xs bg-gray-50 hover:bg-gray-100 text-gray-600 px-2 py-1 rounded">↓</button>
             <button onclick="deleteFile('${f.id}')" class="text-xs text-red-300 hover:text-red-500 px-2 py-1 rounded">✕</button>
           </div>
         </div>`).join('')}
