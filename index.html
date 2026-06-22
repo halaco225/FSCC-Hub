@@ -2392,7 +2392,7 @@ function saveFindingNotes(){
 // ═══════════════════════════════════════════════
 let _edPendingPhotos=[];
 
-function openEntryDetail(id){
+async function openEntryDetail(id){
   const e=entries.find(x=>x.id===id); if(!e) return;
   _edPendingPhotos=[];
   document.getElementById('edUpdateNote').value='';
