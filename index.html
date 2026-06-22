@@ -1012,21 +1012,44 @@ async function loadFromSupabase(){
       _sbSelect('uploaded_files','created_at')
     ]);
     if(eData?.length){
-      // Merge: keep whichever version (local or Supabase) is newer
+      // Split walk_item records out — they belong in walkItems, not entries
+      const walkRows=eData.filter(r=>r.status==='walk_item');
+      const entryRows=eData.filter(r=>r.status!=='walk_item');
+
+      // Restore walkItems from Supabase (merge with local)
+      if(walkRows.length){
+        const localWalkById=Object.fromEntries(walkItems.map(w=>[w.id,w]));
+        walkRows.forEach(r=>{
+          if(!localWalkById[r.id]){
+            // Parse walkId and note from the notes field (stored as "walkId\nnote")
+            const parts=(r.notes||'').split('\n');
+            const walkId=parts[0]||'';
+            const note=parts.slice(1).join('\n');
+            walkItems.push({
+              id:r.id, walkId, date:r.date, category:r.tasks||'Other',
+              severity:r.audit_desc||'minor', note, by:r.person||'',
+              photoIds:[], updatedAt:r.updated_at
+            });
+          }
+        });
+        lsSave('walkItems',walkItems);
+      }
+
+      // Merge regular entries: keep whichever version is newer
       const localById=Object.fromEntries(entries.map(e=>[e.id,e]));
-      const merged=eData.map(r=>{
+      const merged=entryRows.map(r=>{
         const local=localById[r.id];
         const sbTime=new Date(r.updated_at||0).getTime();
         const localTime=new Date(local?.updatedAt||0).getTime();
-        if(local&&localTime>sbTime) return local; // local is newer, keep it
+        if(local&&localTime>sbTime) return local;
         return{
           id:r.id, date:r.date, person:r.person||'', status:r.status||'',
           tasks:r.tasks||'', auditDesc:r.audit_desc||'',
           notes:r.notes||'', updatedAt:r.updated_at
         };
       });
-      // Also keep any local entries not yet in Supabase
-      const sbIds=new Set(eData.map(r=>r.id));
+      // Keep local entries not yet in Supabase
+      const sbIds=new Set(entryRows.map(r=>r.id));
       entries.forEach(e=>{ if(!sbIds.has(e.id)) merged.push(e); });
       entries=merged;
       lsSave('entries',entries);
