@@ -2632,31 +2632,41 @@ function openWeekRecap(start, end, label){
     </div>
   </div>`;
 
-  // By person
-  if(Object.keys(byPerson).length){
-    html += `<div class="font-bold text-gray-700 text-sm">By Team Member</div>`;
-    Object.entries(byPerson).forEach(([person, pEntries])=>{
-      const pd = pEntries.filter(e=>e.status==='Complete').length;
-      html += `<div class="border border-gray-200 rounded-xl overflow-hidden">
-        <div class="bg-gray-50 px-4 py-2 flex justify-between items-center">
-          <span class="font-semibold text-gray-800">${person}</span>
-          <span class="text-xs text-gray-500">${pd}/${pEntries.length} complete</span>
-        </div>
-        <div class="divide-y divide-gray-50">
-          ${pEntries.map(e=>{
-            const ups=e.updates||[];
-            const upHtml=ups.length?`<div class="mt-1.5 space-y-0.5">${ups.slice(-3).map(u=>`<div class="text-xs text-gray-500 flex gap-1 flex-wrap"><span class="font-semibold text-gray-600">${u.by||''}:</span><span>${u.statusChange?'→ '+u.statusChange+' ':''}</span><span>${u.note||''}</span>${(u.photoIds||[]).length?`<span class="text-blue-500">📷${u.photoIds.length}</span>`:''}</div>`).join('')}</div>`:'';
-            return`<div class="px-4 py-2.5 cursor-pointer hover:bg-gray-50" onclick="closeModal('weekRecapModal');openEntryDetail('${e.id}')">
-            <div class="flex justify-between items-start gap-2">
-              <div class="text-xs font-semibold text-gray-600">${fmtDate(e.date)}</div>
-              ${statusBadge(e.status)}
-            </div>
-            ${e.tasks?`<div class="text-sm text-gray-700 mt-1">${e.tasks}</div>`:''}
-            ${upHtml}
-          </div>`;}).join('')}
-        </div>
+  const taskCard = (e) => {
+    const ups = e.updates||[];
+    const upHtml = ups.length ? `<div class="mt-2 space-y-1">${ups.map(u=>`<div class="text-xs text-gray-500 flex gap-1 flex-wrap"><span class="font-semibold text-gray-600">${u.by||''}${u.by?':':''}</span>${u.statusChange?`<span class="text-gray-400">→ ${u.statusChange}</span>`:''}<span>${u.note||''}</span>${(u.photoIds||[]).length?`<span class="text-blue-500 ml-1">📷${u.photoIds.length}</span>`:''}</div>`).join('')}</div>` : '';
+    return `<div class="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-50 last:border-0" onclick="closeModal('weekRecapModal');openEntryDetail('${e.id}')">
+      <div class="flex justify-between items-start gap-2 flex-wrap">
+        <span class="text-xs font-semibold text-gray-500">${fmtDate(e.date)} · ${e.person||'Unassigned'}</span>
+        ${statusBadge(e.status)}
+      </div>
+      ${e.tasks?`<div class="text-sm text-gray-800 mt-1 font-medium">${e.tasks}</div>`:''}
+      ${upHtml}
+    </div>`;
+  };
+
+  // Two sections: Accomplished and Still To Do
+  if(weekEntries.length){
+    const accomplished = weekEntries.filter(e=>e.status==='Complete');
+    const stillToDo    = weekEntries.filter(e=>e.status!=='Complete');
+
+    html += `<div class="font-bold text-gray-700 text-sm mt-1">✅ Accomplished (${accomplished.length})</div>`;
+    if(accomplished.length){
+      html += `<div class="border border-green-200 rounded-xl overflow-hidden bg-green-50">
+        ${accomplished.map(taskCard).join('')}
       </div>`;
-    });
+    } else {
+      html += `<div class="text-sm text-gray-400 italic px-2">No completed tasks this week yet.</div>`;
+    }
+
+    html += `<div class="font-bold text-gray-700 text-sm mt-3">📋 Still To Do (${stillToDo.length})</div>`;
+    if(stillToDo.length){
+      html += `<div class="border border-amber-200 rounded-xl overflow-hidden bg-amber-50">
+        ${stillToDo.map(taskCard).join('')}
+      </div>`;
+    } else {
+      html += `<div class="text-sm text-gray-400 italic px-2">All tasks complete — great week! 🎉</div>`;
+    }
   } else {
     html += `<div class="text-center py-8 text-gray-400">
       <div class="text-3xl mb-2">📭</div>
