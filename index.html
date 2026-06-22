@@ -2401,8 +2401,23 @@ function openEntryDetail(id){
 
   // Body: task info + updates log
   const files=uploadedFiles.filter(f=>f.entryId===e.id);
-  const imgs=files.filter(f=>['jpg','jpeg','png','gif','webp'].includes(f.ext));
-  const docs=files.filter(f=>!['jpg','jpeg','png','gif','webp'].includes(f.ext));
+  const imgs=files.filter(f=>_IMG_EXTS.includes(f.ext));
+  const docs=files.filter(f=>!_IMG_EXTS.includes(f.ext));
+  // Load photos from IDB before rendering
+  await Promise.all(imgs.map(async f=>{
+    if(!f.fileData||f.fileData==='[too-large]'){
+      const d=await _idb.get(f.id).catch(()=>null);
+      if(d) f.fileData=d;
+    }
+  }));
+  // Also load photos inside updates
+  await Promise.all((e.updates||[]).flatMap(u=>(u.photoIds||[]).map(async pid=>{
+    const f=uploadedFiles.find(x=>x.id===pid);
+    if(f&&(!f.fileData||f.fileData==='[too-large]')){
+      const d=await _idb.get(pid).catch(()=>null);
+      if(d) f.fileData=d;
+    }
+  })));
   const updates=e.updates||[];
 
   let html='';
