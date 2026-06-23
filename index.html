@@ -1025,13 +1025,12 @@ async function _syncToSupabase(){
     })));
   }catch(err){console.warn('Supabase walkItems sync error:',err);anyErr=true;}
   try{
-    const schedRows=Object.entries(daySchedules).filter(([,v])=>v.rgm||v.dm).map(([date,v])=>({
-      id:'sched-'+date, date, person:null, status:'schedule',
-      tasks:JSON.stringify({rgm:v.rgm||'',dm:v.dm||''}),
-      audit_desc:null, notes:null,
-      updated_at:new Date().toISOString()
-    }));
-    if(schedRows.length) await _sbUpsert('entries', schedRows);
+    const schedJson=JSON.stringify(daySchedules);
+    await _sbUpsert('uploaded_files',[{
+      id:'fscc-day-schedules', file_name:'day-schedules.json', ext:'json',
+      size:null, category:'__schedules__', description:schedJson,
+      uploaded_by:null, date:null, entry_id:null, storage_path:null
+    }]);
   }catch(err){console.warn('Supabase schedules sync error:',err);anyErr=true;}
   if(anyErr){
     _showSyncBanner('⚠️ Some data failed to sync to cloud — your local data is still saved. Check console for details.','yellow');
@@ -1054,14 +1053,7 @@ async function loadFromSupabase(){
     if(eData?.length){
       // Split walk_item records out — they belong in walkItems, not entries
       const walkRows=eData.filter(r=>r.status==='walk_item');
-      const schedRows=eData.filter(r=>r.status==='schedule');
-      const entryRows=eData.filter(r=>r.status!=='walk_item'&&r.status!=='schedule');
-
-      // Restore daySchedules from Supabase
-      schedRows.forEach(r=>{
-        try{ const v=JSON.parse(r.tasks||'{}'); daySchedules[r.date]={rgm:v.rgm||'',dm:v.dm||''}; }catch{}
-      });
-      if(schedRows.length) lsSave('daySchedules',daySchedules);
+      const entryRows=eData.filter(r=>r.status!=='walk_item');
 
       // Restore walkItems from Supabase (merge with local)
       if(walkRows.length){
@@ -1134,8 +1126,17 @@ async function loadFromSupabase(){
       lsSave('pestWalks',pestWalks);
     }
     if(fData?.length){
+      // Restore daySchedules from the special schedule row
+      const schedRow=fData.find(r=>r.id==='fscc-day-schedules');
+      if(schedRow?.description){
+        try{
+          const sb=JSON.parse(schedRow.description);
+          Object.assign(daySchedules,sb);
+          lsSave('daySchedules',daySchedules);
+        }catch{}
+      }
       const localById=Object.fromEntries(uploadedFiles.map(f=>[f.id,f]));
-      uploadedFiles=fData.map(r=>({
+      uploadedFiles=fData.filter(r=>r.category!=='__schedules__').map(r=>({
         ...(localById[r.id]||{}),
         id:r.id, fileName:r.file_name, ext:r.ext||'', size:r.size,
         category:r.category||'Other', desc:r.description||'',
