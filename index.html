@@ -1024,6 +1024,15 @@ async function _syncToSupabase(){
       updated_at:w.updatedAt||new Date().toISOString()
     })));
   }catch(err){console.warn('Supabase walkItems sync error:',err);anyErr=true;}
+  try{
+    const schedRows=Object.entries(daySchedules).filter(([,v])=>v.rgm||v.dm).map(([date,v])=>({
+      id:'sched-'+date, date, person:null, status:'schedule',
+      tasks:JSON.stringify({rgm:v.rgm||'',dm:v.dm||''}),
+      audit_desc:null, notes:null,
+      updated_at:new Date().toISOString()
+    }));
+    if(schedRows.length) await _sbUpsert('entries', schedRows);
+  }catch(err){console.warn('Supabase schedules sync error:',err);anyErr=true;}
   if(anyErr){
     _showSyncBanner('⚠️ Some data failed to sync to cloud — your local data is still saved. Check console for details.','yellow');
   } else {
@@ -1045,7 +1054,14 @@ async function loadFromSupabase(){
     if(eData?.length){
       // Split walk_item records out — they belong in walkItems, not entries
       const walkRows=eData.filter(r=>r.status==='walk_item');
-      const entryRows=eData.filter(r=>r.status!=='walk_item');
+      const schedRows=eData.filter(r=>r.status==='schedule');
+      const entryRows=eData.filter(r=>r.status!=='walk_item'&&r.status!=='schedule');
+
+      // Restore daySchedules from Supabase
+      schedRows.forEach(r=>{
+        try{ const v=JSON.parse(r.tasks||'{}'); daySchedules[r.date]={rgm:v.rgm||'',dm:v.dm||''}; }catch{}
+      });
+      if(schedRows.length) lsSave('daySchedules',daySchedules);
 
       // Restore walkItems from Supabase (merge with local)
       if(walkRows.length){
