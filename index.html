@@ -967,11 +967,15 @@ async function _syncToSupabase(){
   let anyErr=false;
   // entries — no rgm_schedule/dm_schedule (columns removed from DB)
   try{
-    await _sbUpsert('entries', entries.map(e=>({
-      id:e.id, date:e.date, person:e.person||null, status:e.status||null,
-      tasks:e.tasks||null, audit_desc:e.auditDesc||null, notes:e.notes||null,
-      updated_at:e.updatedAt||new Date().toISOString()
-    })));
+    await _sbUpsert('entries', entries.map(e=>{
+      const upStr=(e.updates&&e.updates.length)?('\x00UPD\x00'+JSON.stringify(e.updates)):'';
+      return{
+        id:e.id, date:e.date, person:e.person||null, status:e.status||null,
+        tasks:e.tasks||null, audit_desc:e.auditDesc||null,
+        notes:(e.notes||'')+upStr,
+        updated_at:e.updatedAt||new Date().toISOString()
+      };
+    }));
   }catch(err){console.warn('Supabase entries sync error:',err);anyErr=true;}
   try{
     const resRows=Object.entries(resolved).map(([finding_id,v])=>({
@@ -1081,10 +1085,13 @@ async function loadFromSupabase(){
         const sbTime=new Date(r.updated_at||0).getTime();
         const localTime=new Date(local?.updatedAt||0).getTime();
         if(local&&localTime>sbTime) return local;
+        const rawNotes=r.notes||'';
+        const upSplit=rawNotes.split('\x00UPD\x00');
+        const parsedUpdates=upSplit.length>1?JSON.parse(upSplit[1]):[];
         return{
           id:r.id, date:r.date, person:r.person||'', status:r.status||'',
           tasks:r.tasks||'', auditDesc:r.audit_desc||'',
-          notes:r.notes||'', updatedAt:r.updated_at
+          notes:upSplit[0], updates:parsedUpdates, updatedAt:r.updated_at
         };
       });
       // Keep local entries not yet in Supabase
